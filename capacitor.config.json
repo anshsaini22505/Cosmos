@@ -1,0 +1,24 @@
+{
+  "appId": "com.astralodyssey.solarcmd",
+  "appName": "Astral Odyssey: Solar Command",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "minWebViewVersion": 55,
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false,
+    "backgroundColor": "#040711"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#040711",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}

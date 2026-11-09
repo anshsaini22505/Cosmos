@@ -1,0 +1,6 @@
+{
+  "name": "Astral Odyssey: 3D Solar System & Space Command",
+  "description": "An interactive 3D space flight, solar system exploration, planetary base building, and cosmic defense game powered by Three.js.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

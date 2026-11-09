@@ -1,0 +1,75 @@
+name: Build & Deploy Web PWA + Android 7-17 APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-and-apk"
+  cancel-in-progress: false
+
+jobs:
+  build-web-and-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Dependencies, Type-Check & Build Production PWA
+        run: |
+          npm install
+          npm run lint
+          npm run build
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        continue-on-error: true
+
+      - name: Upload Web PWA Artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+      - name: Setup Java JDK 21 for Android SDK (API 24 to API 37 / Android 7-17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Package Android 7.0 (API 24) to Android 17 (API 37) Project
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android --no-save
+          npx cap add android || true
+          cp -f android-config/variables.gradle android/variables.gradle || true
+          npx cap sync android
+          cd android && chmod +x gradlew && ./gradlew assembleDebug
+
+      - name: Upload Ready-to-Install Android 7-17 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Astral-Odyssey-Android-7-to-17-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  deploy-github-pages:
+    needs: build-web-and-android
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
