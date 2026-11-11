@@ -943,8 +943,10 @@ export default function App() {
                     ))}
                   </div>
 
-                  {/* 36-Language Selector in Settings */}
-                  <div className="flex items-center gap-1.5">
+                  {/* 36-Language Selector & Phone App Install in Settings */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <PWAInstallButton />
+
                     <select
                       value={langCode}
                       onChange={(e) => handleLanguageChange(e.target.value)}
