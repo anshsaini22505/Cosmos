@@ -26,7 +26,7 @@ import { TouchInputState, RadarBlip } from './MobileTouchAndRadar';
 
 export type GameStateMode = 'title' | 'playing' | 'paused' | 'victory' | 'gameover';
 export type CameraViewMode = 'chase' | 'cockpit' | 'overview';
-export type GraphicsQualityMode = 'auto' | 'high' | 'saver';
+export type GraphicsQualityMode = 'ultra' | 'high' | 'auto' | 'saver';
 
 export interface BuiltOutpostInfo {
   id: string;
@@ -280,6 +280,42 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       starInstanced.computeBoundingSphere();
       scene.add(starInstanced);
 
+      // 5B. Cosmic Nebulae Dust Field (Ultra High Graphics volumetric atmosphere)
+      const nebulaCount = 200;
+      const nebulaGeo = new THREE.DodecahedronGeometry(22, 1);
+      const nebulaMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.12,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const nebulaInstanced = new THREE.InstancedMesh(nebulaGeo, nebulaMat, nebulaCount);
+      const nebulaPalette = [0x7c3aed, 0x06b6d4, 0x3b82f6, 0xf59e0b, 0xec4899];
+      for (let i = 0; i < nebulaCount; i++) {
+        const r = 320 + Math.random() * 450;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        _vec3A.set(
+          r * Math.sin(phi) * Math.cos(theta),
+          (Math.random() - 0.5) * 160,
+          r * Math.cos(phi)
+        );
+        const s = 1.0 + Math.random() * 2.2;
+        _scale.set(s, s * 0.7, s);
+        _euler.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+        _quat.setFromEuler(_euler);
+        _mat4.compose(_vec3A, _quat, _scale);
+        nebulaInstanced.setMatrixAt(i, _mat4);
+        _color.setHex(nebulaPalette[i % nebulaPalette.length]);
+        nebulaInstanced.setColorAt(i, _color);
+      }
+      nebulaInstanced.instanceMatrix.needsUpdate = true;
+      if (nebulaInstanced.instanceColor) nebulaInstanced.instanceColor.needsUpdate = true;
+      nebulaInstanced.computeBoundingSphere();
+      scene.add(nebulaInstanced);
+
       // 6. Build the Solar System (Sun + 9 Planets/Dwarf Planets + Moons + Orbit Rings)
       interface PlanetRuntime {
         data: PlanetData;
@@ -291,6 +327,8 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       }
 
       const planetsRuntime: PlanetRuntime[] = [];
+      let sunCoronaMesh: THREE.Mesh | null = null;
+      let sunOuterCoronaMesh: THREE.Mesh | null = null;
 
       SOLAR_SYSTEM_DATA.forEach((pData, idx) => {
         const rootGroup = new THREE.Group();
@@ -331,7 +369,8 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             side: THREE.BackSide,
             depthWrite: false,
           });
-          rootGroup.add(new THREE.Mesh(coronaGeo, coronaMat));
+          sunCoronaMesh = new THREE.Mesh(coronaGeo, coronaMat);
+          rootGroup.add(sunCoronaMesh);
 
           const outerCoronaGeo = new THREE.SphereGeometry(pData.radius * 1.48, 32, 24);
           const outerCoronaMat = new THREE.MeshBasicMaterial({
@@ -341,13 +380,57 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             side: THREE.BackSide,
             depthWrite: false,
           });
-          rootGroup.add(new THREE.Mesh(outerCoronaGeo, outerCoronaMat));
+          sunOuterCoronaMesh = new THREE.Mesh(outerCoronaGeo, outerCoronaMat);
+          rootGroup.add(sunOuterCoronaMesh);
         } else {
           mat = new THREE.MeshStandardMaterial({
             map: tex,
             roughness: pData.type.includes('Gas') ? 0.65 : 0.78,
             metalness: pData.id === 'mercury' ? 0.35 : 0.1,
           });
+
+          // High Graphics Atmospheric Halos
+          if (pData.id === 'earth') {
+            const atmoGeo = new THREE.SphereGeometry(pData.radius * 1.08, 32, 24);
+            const atmoMat = new THREE.MeshBasicMaterial({
+              color: 0x38bdf8,
+              transparent: true,
+              opacity: 0.32,
+              side: THREE.BackSide,
+              depthWrite: false,
+            });
+            rootGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
+          } else if (pData.id === 'venus') {
+            const atmoGeo = new THREE.SphereGeometry(pData.radius * 1.07, 32, 24);
+            const atmoMat = new THREE.MeshBasicMaterial({
+              color: 0xfbbf24,
+              transparent: true,
+              opacity: 0.28,
+              side: THREE.BackSide,
+              depthWrite: false,
+            });
+            rootGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
+          } else if (pData.id === 'mars') {
+            const atmoGeo = new THREE.SphereGeometry(pData.radius * 1.05, 32, 24);
+            const atmoMat = new THREE.MeshBasicMaterial({
+              color: 0xf87171,
+              transparent: true,
+              opacity: 0.22,
+              side: THREE.BackSide,
+              depthWrite: false,
+            });
+            rootGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
+          } else if (pData.id === 'jupiter') {
+            const atmoGeo = new THREE.SphereGeometry(pData.radius * 1.04, 32, 24);
+            const atmoMat = new THREE.MeshBasicMaterial({
+              color: 0xa855f7,
+              transparent: true,
+              opacity: 0.16,
+              side: THREE.BackSide,
+              depthWrite: false,
+            });
+            rootGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
+          }
         }
 
         const mesh = new THREE.Mesh(geo, mat);
@@ -567,6 +650,15 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       // 9. Player Starship ("Vajra-IX Starfighter") & Debounced Save State
       const playerShip = createPlayerStarship(isSoftwareGl);
       scene.add(playerShip.group);
+
+      // Forward Tactical Spotlight for High Graphics
+      const shipSpotlight = new THREE.SpotLight(0xbae6fd, 2.8, 130, 0.5, 0.6, 1.2);
+      shipSpotlight.position.set(0, 0.4, 1.8);
+      const shipSpotlightTarget = new THREE.Object3D();
+      shipSpotlightTarget.position.set(0, 0, -45);
+      playerShip.group.add(shipSpotlightTarget);
+      shipSpotlight.target = shipSpotlightTarget;
+      playerShip.group.add(shipSpotlight);
 
       let savedData: {
         score?: number;
@@ -802,7 +894,11 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         speedScale: number
       ) => {
         const effectiveCount =
-          graphicsQualityRef.current === 'saver' ? Math.ceil(count * 0.5) : count;
+          graphicsQualityRef.current === 'ultra'
+            ? Math.min(particlePool.length, Math.ceil(count * 1.6))
+            : graphicsQualityRef.current === 'saver'
+              ? Math.ceil(count * 0.5)
+              : count;
         let spawned = 0;
         for (let i = 0; i < particlePool.length && spawned < effectiveCount; i++) {
           const p = particlePool[i];
@@ -1206,7 +1302,11 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
 
         if (!isSoftwareGl) {
           let desiredPR = basePixelRatio;
-          if (graphicsQualityRef.current === 'saver') {
+          if (graphicsQualityRef.current === 'ultra') {
+            desiredPR = Math.min(2.5, Math.max(1.6, basePixelRatio * 1.25));
+          } else if (graphicsQualityRef.current === 'high') {
+            desiredPR = Math.min(1.75, basePixelRatio);
+          } else if (graphicsQualityRef.current === 'saver') {
             desiredPR = Math.min(1.0, basePixelRatio);
           } else if (graphicsQualityRef.current === 'auto' && rollingFps < 42) {
             desiredPR = Math.min(1.0, basePixelRatio);
@@ -1215,6 +1315,17 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             currentAppliedPixelRatio = desiredPR;
             renderer.setPixelRatio(currentAppliedPixelRatio);
           }
+        }
+
+        // Animate volumetric cosmic nebulae & pulsating solar corona in Ultra/High modes
+        nebulaInstanced.rotation.y += 0.012 * dt;
+        if (sunCoronaMesh) {
+          const s = 1.0 + 0.045 * Math.sin(clock.getElapsedTime() * 2.8);
+          sunCoronaMesh.scale.set(s, s, s);
+        }
+        if (sunOuterCoronaMesh) {
+          const s2 = 1.0 + 0.065 * Math.cos(clock.getElapsedTime() * 1.9);
+          sunOuterCoronaMesh.scale.set(s2, s2, s2);
         }
 
         // Flush debounced localStorage save every 2.5 seconds if dirty

@@ -22,6 +22,7 @@ import {
 } from './data/i18n';
 import { soundEngine } from './audio/soundEngine';
 import { PWAInstallButton, OfflineIndicator } from './pwa/PWAInstallButton';
+import { UpdateAndApkModal } from './components/UpdateAndApkModal';
 import {
   MobileTouchController,
   TacticalRadarMinimap,
@@ -94,6 +95,7 @@ export default function App() {
   >('warp');
   const [codexPlanet, setCodexPlanet] = useState<PlanetData | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [showUpdateModal, setShowUpdateModal] = useState<boolean>(false);
 
   const [showTouchPad, setShowTouchPad] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
@@ -253,6 +255,35 @@ export default function App() {
 
             <div className="flex flex-wrap items-center gap-2">
               <PWAInstallButton />
+
+              {/* Updates & APK Button */}
+              <button
+                onClick={() => setShowUpdateModal(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/60 px-3 py-1.5 text-xs font-display font-bold text-sky-200 transition cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span>🚀 {t.updateBtn}</span>
+              </button>
+
+              {/* Graphics Quality Quick Toggle */}
+              <div className="flex items-center bg-[#0b1329] border border-slate-700/80 rounded-lg p-0.5 text-[11px] font-mono">
+                {(['ultra', 'high', 'auto', 'saver'] as GraphicsQualityMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setGraphicsQuality(mode)}
+                    className={`px-2 py-1 rounded transition cursor-pointer ${
+                      graphicsQuality === mode
+                        ? 'bg-amber-400 text-slate-950 font-bold'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {mode === 'ultra' ? '🌟 ULTRA' : mode === 'high' ? '⚡ HIGH' : mode === 'auto' ? '⚖️ AUTO' : '🔋 SAVER'}
+                  </button>
+                ))}
+              </div>
 
               {/* 36-Language Selector */}
               <label className="flex items-center gap-1.5 bg-[#0b1329] border border-slate-700/90 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
@@ -541,6 +572,15 @@ export default function App() {
               </div>
 
               <div className="flex items-center justify-between gap-2 text-xs text-slate-400 font-mono tabular-nums pt-1 border-t border-slate-800/80">
+                <button
+                  onClick={() => setShowUpdateModal(true)}
+                  className="text-sky-300 hover:text-white flex items-center gap-1 cursor-pointer font-bold"
+                  title="Check Updates & Download Android APK"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>APK</span>
+                </button>
+                <span aria-hidden="true">·</span>
                 <span>
                   {t.scanned}: {telemetry.scannedPlanets.length}/10
                 </span>
@@ -943,9 +983,37 @@ export default function App() {
                     ))}
                   </div>
 
-                  {/* 36-Language Selector & Phone App Install in Settings */}
+                  {/* Graphics Quality Selector in Settings */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-400 mr-1">
+                      {t.graphicsQuality}:
+                    </span>
+                    {(['ultra', 'high', 'auto', 'saver'] as GraphicsQualityMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => setGraphicsQuality(mode)}
+                        className={`px-2.5 py-1.5 text-xs font-mono rounded-md cursor-pointer whitespace-nowrap shrink-0 ${
+                          graphicsQuality === mode
+                            ? 'bg-amber-400 text-slate-950 font-bold'
+                            : 'bg-[#0e1830] text-slate-300 hover:text-white border border-slate-800'
+                        }`}
+                      >
+                        {mode === 'ultra' ? '🌟 ULTRA' : mode === 'high' ? '⚡ HIGH' : mode === 'auto' ? '⚖️ AUTO' : '🔋 SAVER'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 36-Language Selector, Phone App Install & APK Updates in Settings */}
                   <div className="flex flex-wrap items-center gap-1.5">
                     <PWAInstallButton />
+
+                    <button
+                      onClick={() => setShowUpdateModal(true)}
+                      className="flex items-center gap-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/60 px-3 py-1.5 text-xs font-display font-bold text-sky-200 transition cursor-pointer whitespace-nowrap shrink-0"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>🚀 {t.updateBtn}</span>
+                    </button>
 
                     <select
                       value={langCode}
@@ -1199,6 +1267,13 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 5. Automated APK Download & Updates Modal */}
+      <UpdateAndApkModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        langCode={langCode}
+      />
     </div>
   );
 }

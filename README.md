@@ -31,6 +31,20 @@ git remote add origin https://github.com/<your-username>/<your-repo>.git
 git push -u origin main
 ```
 
-Once pushed to GitHub, the included workflow (`.github/workflows/android-and-github-pages.yml`) automatically:
-1. Builds the offline-capable **Progressive Web App (PWA)** for GitHub Pages.
-2. Compiles an installable **Android 7–17 APK** (`Astral-Odyssey-Android-7-to-17-APK`) under your repository's **Actions → Artifacts** tab.
+Once pushed to GitHub, the included workflows (`.github/workflows/build-apk.yml` and `.github/workflows/android-and-github-pages.yml`) automatically:
+1. **GitHub Actions Tab**: Compiles ready-to-install Android APKs (`Astral-Odyssey-Android-APK`) accessible directly under your repository's **Actions → Artifacts** tab.
+2. **GitHub Releases**: Automatically attaches the `.apk` (`Astral-Odyssey-Solar-Command-v2.2.0.apk`) to GitHub Releases for direct 1-tap phone downloads.
+3. **GitHub Pages PWA**: Deploys the full-fidelity web version with offline service worker support.
+
+## 📲 How to Download & Install the APK on Your Phone
+1. Go to your GitHub repository and click the **Actions** tab.
+2. Select the latest workflow run named **"Build Android APK (Automated Release)"**.
+3. Under the **Artifacts** section at the bottom, tap **`Astral-Odyssey-Android-APK`** to download.
+4. Or visit the **Releases** tab to download the standalone `.apk` directly without unzipping.
+5. Tap the `.apk` file on your Android phone and click **Install**!
+
+## 🌟 Visual & Gameplay Features
+- **Ultra 4K Graphics**: Planetary atmospheric halos (Earth, Venus, Mars, Jupiter), volumetric cosmic nebulae dust clouds, dynamic plasma thrusters, pulsating solar corona, and forward tactical starship spotlights.
+- **Autonomous AI Pilot**: Complete self-playing mode that navigates between all 10 solar worlds, scans planets, mines asteroid belts, and battles Void Pirates automatically.
+- **In-App Update & APK Hub**: In-game version tracking, update check animations, and direct download links.
+- **36 Languages**: Automatic browser language detection with instant live switching for 36 Indian and international languages.

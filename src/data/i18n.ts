@@ -87,6 +87,14 @@ export interface UIStrings {
   temperature: string;
   gravity: string;
   moons: string;
+  graphicsQuality: string;
+  graphicsUltra: string;
+  graphicsHigh: string;
+  graphicsBalanced: string;
+  graphicsSaver: string;
+  updateAvailable: string;
+  updateBtn: string;
+  apkDownload: string;
   planetNames: Record<string, string>;
 }
 
@@ -134,6 +142,14 @@ const BASE_EN: UIStrings = {
   temperature: 'Temperature',
   gravity: 'Gravity',
   moons: 'Moons',
+  graphicsQuality: 'Graphics Quality',
+  graphicsUltra: 'Ultra 4K',
+  graphicsHigh: 'High 60FPS',
+  graphicsBalanced: 'Auto / Balanced',
+  graphicsSaver: 'Battery Saver',
+  updateAvailable: 'New Update Available',
+  updateBtn: 'Updates & APK',
+  apkDownload: 'Download APK',
   planetNames: {
     sun: 'The Sun',
     mercury: 'Mercury',
@@ -193,6 +209,14 @@ const TRANSLATIONS: Record<string, Partial<UIStrings>> = {
     temperature: 'तापमान',
     gravity: 'गुरुत्वाकर्षण',
     moons: 'चंद्रमा',
+    graphicsQuality: 'ग्राफ़िक्स क्वालिटी',
+    graphicsUltra: 'अल्ट्रा 4K',
+    graphicsHigh: 'हाई 60FPS',
+    graphicsBalanced: 'संतुलित (Auto)',
+    graphicsSaver: 'बैटरी सेवर',
+    updateAvailable: 'नया अपडेट उपलब्ध है',
+    updateBtn: 'अपडेट और APK',
+    apkDownload: 'APK डाउनलोड करें',
     planetNames: {
       sun: 'सूर्य',
       mercury: 'बुध',
