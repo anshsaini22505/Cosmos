@@ -11,7 +11,10 @@ import {
 } from '../data/solarSystemData';
 import {
   createPlanetTexture,
+  createPlanetBumpTexture,
+  createCloudLayerTexture,
   createRingTexture,
+  createAccretionDiskTexture,
 } from '../three/proceduralTextures';
 import {
   createPlayerStarship,
@@ -74,6 +77,7 @@ export interface HudTelemetry {
 
 export interface SpaceCanvasHandle {
   warpToPlanet: (planetId: string) => void;
+  warpToBlackHole: () => void;
   buildStructureNearPlanet: (type: 'turret' | 'extractor' | 'station') => boolean;
   upgradeShipSystem: (id: keyof ShipUpgradeLevels) => boolean;
   fireHomingMissile: () => void;
@@ -89,6 +93,7 @@ interface SpaceCanvasProps {
   cameraMode: CameraViewMode;
   graphicsQuality: GraphicsQualityMode;
   timeScale: number;
+  focusPlanetId?: string | null;
   touchInputRef: React.MutableRefObject<TouchInputState>;
   onTelemetryUpdate: (telemetry: HudTelemetry) => void;
   onGameEnd: (result: 'victory' | 'gameover') => void;
@@ -117,6 +122,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       cameraMode,
       graphicsQuality,
       timeScale,
+      focusPlanetId = null,
       touchInputRef,
       onTelemetryUpdate,
       onGameEnd,
@@ -130,6 +136,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
     const cameraModeRef = useRef<CameraViewMode>(cameraMode);
     const graphicsQualityRef = useRef<GraphicsQualityMode>(graphicsQuality);
     const timeScaleRef = useRef<number>(timeScale);
+    const focusPlanetIdRef = useRef<string | null>(focusPlanetId);
     const onTelemetryRef = useRef(onTelemetryUpdate);
     const onGameEndRef = useRef(onGameEnd);
     const onSelectPlanetRef = useRef(onSelectPlanetCodex);
@@ -147,6 +154,9 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       timeScaleRef.current = timeScale;
     }, [timeScale]);
     useEffect(() => {
+      focusPlanetIdRef.current = focusPlanetId ?? null;
+    }, [focusPlanetId]);
+    useEffect(() => {
       onTelemetryRef.current = onTelemetryUpdate;
     }, [onTelemetryUpdate]);
     useEffect(() => {
@@ -158,6 +168,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
 
     const actionsRef = useRef<SpaceCanvasHandle>({
       warpToPlanet: () => {},
+      warpToBlackHole: () => {},
       buildStructureNearPlanet: () => false,
       upgradeShipSystem: () => false,
       fireHomingMissile: () => {},
@@ -170,6 +181,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
 
     useImperativeHandle(ref, () => ({
       warpToPlanet: (id: string) => actionsRef.current.warpToPlanet(id),
+      warpToBlackHole: () => actionsRef.current.warpToBlackHole(),
       buildStructureNearPlanet: (type) =>
         actionsRef.current.buildStructureNearPlanet(type),
       upgradeShipSystem: (id) => actionsRef.current.upgradeShipSystem(id),
@@ -329,6 +341,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       const planetsRuntime: PlanetRuntime[] = [];
       let sunCoronaMesh: THREE.Mesh | null = null;
       let sunOuterCoronaMesh: THREE.Mesh | null = null;
+      let earthCloudMesh: THREE.Mesh | null = null;
 
       SOLAR_SYSTEM_DATA.forEach((pData, idx) => {
         const rootGroup = new THREE.Group();
@@ -356,7 +369,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         }
 
         const tex = createPlanetTexture(pData.id, maxAnisotropy);
-        const geo = new THREE.SphereGeometry(pData.radius, 36, 28);
+        const geo = new THREE.SphereGeometry(pData.radius, 48, 36);
 
         let mat: THREE.Material;
         if (pData.id === 'sun') {
@@ -383,14 +396,29 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           sunOuterCoronaMesh = new THREE.Mesh(outerCoronaGeo, outerCoronaMat);
           rootGroup.add(sunOuterCoronaMesh);
         } else {
+          const bumpTex = createPlanetBumpTexture(pData.id, maxAnisotropy);
           mat = new THREE.MeshStandardMaterial({
             map: tex,
-            roughness: pData.type.includes('Gas') ? 0.65 : 0.78,
-            metalness: pData.id === 'mercury' ? 0.35 : 0.1,
+            bumpMap: bumpTex,
+            bumpScale: pData.type.includes('Gas') ? 0.08 : 0.35,
+            roughness: pData.type.includes('Gas') ? 0.58 : 0.72,
+            metalness: pData.id === 'mercury' ? 0.35 : 0.12,
           });
 
-          // High Graphics Atmospheric Halos
+          // High Graphics Atmospheric Halos & Rotating Cloud Sphere
           if (pData.id === 'earth') {
+            const cloudGeo = new THREE.SphereGeometry(pData.radius * 1.025, 36, 28);
+            const cloudTex = createCloudLayerTexture(maxAnisotropy);
+            const cloudMat = new THREE.MeshStandardMaterial({
+              map: cloudTex,
+              transparent: true,
+              opacity: 0.78,
+              depthWrite: false,
+              roughness: 0.9,
+            });
+            earthCloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+            rootGroup.add(earthCloudMesh);
+
             const atmoGeo = new THREE.SphereGeometry(pData.radius * 1.08, 32, 24);
             const atmoMat = new THREE.MeshBasicMaterial({
               color: 0x38bdf8,
@@ -540,6 +568,41 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       outerWormhole.group.position.set(295, 0, -185);
       scene.add(outerWormhole.group);
       let wormholeCooldown = 0;
+
+      // 6C. 3D Supermassive Black Hole ("Sagittarius A* / Gargantua") in Deep Space
+      const blackHoleGroup = new THREE.Group();
+      blackHoleGroup.position.set(-260, 0, -240);
+      scene.add(blackHoleGroup);
+
+      const bhHorizonGeo = new THREE.SphereGeometry(11, 40, 32);
+      const bhHorizonMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      blackHoleGroup.add(new THREE.Mesh(bhHorizonGeo, bhHorizonMat));
+
+      const bhAccretionTex = createAccretionDiskTexture(maxAnisotropy);
+      const bhDiskGeo = new THREE.RingGeometry(11.4, 38, 64);
+      bhDiskGeo.rotateX(-Math.PI / 2);
+      const bhDiskMat = new THREE.MeshBasicMaterial({
+        map: bhAccretionTex,
+        side: THREE.DoubleSide,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const bhAccretionDisk = new THREE.Mesh(bhDiskGeo, bhDiskMat);
+      bhAccretionDisk.rotation.z = 0.22;
+      blackHoleGroup.add(bhAccretionDisk);
+
+      const bhLensingGeo = new THREE.RingGeometry(11.2, 20.5, 64);
+      const bhLensingMat = new THREE.MeshBasicMaterial({
+        map: bhAccretionTex,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.72,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const bhLensingRing = new THREE.Mesh(bhLensingGeo, bhLensingMat);
+      blackHoleGroup.add(bhLensingRing);
 
       interface ProbeRuntime {
         info: (typeof SPACE_PROBES)[number];
@@ -1098,6 +1161,25 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           markSaveDirty();
         },
 
+        warpToBlackHole: () => {
+          soundEngine.playWarp();
+          playerState.position.set(
+            blackHoleGroup.position.x + 36,
+            2,
+            blackHoleGroup.position.z + 36
+          );
+          playerState.velocity.set(0, 0, 0);
+          playerState.speed = 0;
+          const dx = blackHoleGroup.position.x - playerState.position.x;
+          const dz = blackHoleGroup.position.z - playerState.position.z;
+          playerState.yaw = Math.atan2(-dx, -dz);
+          playerState.autoPilotActive = false;
+          playerState.activeAlert =
+            'Warped to Supermassive Black Hole Sagittarius A* — Event Horizon Sector!';
+          playerState.alertTimer = 4.0;
+          cameraShake = 0.45;
+        },
+
         buildStructureNearPlanet: (type: 'turret' | 'extractor' | 'station') => {
           const spec = BUILDABLE_STRUCTURES.find((s) => s.id === type);
           if (!spec) return false;
@@ -1317,8 +1399,14 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           }
         }
 
-        // Animate volumetric cosmic nebulae & pulsating solar corona in Ultra/High modes
+        // Animate volumetric cosmic nebulae, Earth clouds, Black Hole accretion disk & solar corona
         nebulaInstanced.rotation.y += 0.012 * dt;
+        if (earthCloudMesh) {
+          earthCloudMesh.rotation.y += 0.26 * simDt;
+        }
+        bhAccretionDisk.rotation.y -= 0.75 * dt;
+        bhLensingRing.lookAt(camera.position);
+
         if (sunCoronaMesh) {
           const s = 1.0 + 0.045 * Math.sin(clock.getElapsedTime() * 2.8);
           sunCoronaMesh.scale.set(s, s, s);
@@ -2062,7 +2150,37 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           const shakeX = (Math.random() - 0.5) * cameraShake * 1.6;
           const shakeY = (Math.random() - 0.5) * cameraShake * 1.6;
 
-          if (cameraModeRef.current === 'chase') {
+          const activeFocusId = focusPlanetIdRef.current;
+          const focusedPlanetRuntime = activeFocusId
+            ? planetsRuntime.find((p) => p.data.id === activeFocusId)
+            : null;
+
+          if (activeFocusId === 'blackhole') {
+            const orbitT = clock.getElapsedTime() * 0.25;
+            const dist = 48;
+            _vec3CamTarget.set(
+              blackHoleGroup.position.x + Math.cos(orbitT) * dist,
+              11,
+              blackHoleGroup.position.z + Math.sin(orbitT) * dist
+            );
+            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-5.5 * dt));
+            camera.lookAt(blackHoleGroup.position);
+            playerShip.group.visible = true;
+          } else if (focusedPlanetRuntime) {
+            // Solar System Scope Orbital Inspection Camera around the selected planet
+            const orbitT = clock.getElapsedTime() * 0.22;
+            const inspectDist = Math.max(8.5, focusedPlanetRuntime.data.radius * 3.2);
+            _vec3CamTarget.set(
+              focusedPlanetRuntime.rootGroup.position.x + Math.cos(orbitT) * inspectDist,
+              focusedPlanetRuntime.data.radius * 0.65,
+              focusedPlanetRuntime.rootGroup.position.z + Math.sin(orbitT) * inspectDist
+            );
+            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-6.0 * dt));
+            camera.lookAt(focusedPlanetRuntime.rootGroup.position);
+            camera.fov = THREE.MathUtils.damp(camera.fov, 52, 6, dt);
+            camera.updateProjectionMatrix();
+            playerShip.group.visible = true;
+          } else if (cameraModeRef.current === 'chase') {
             _vec3D.set(shakeX, 6.8 + shakeY, 0);
             _vec3CamTarget
               .copy(playerState.position)
