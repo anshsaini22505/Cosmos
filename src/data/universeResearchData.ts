@@ -541,3 +541,146 @@ export const UNIVERSE_RESEARCH_ARTICLES: UniverseResearchArticle[] = [
     ],
   },
 ];
+
+export const BLACK_HOLE_INSPECTOR_DATA = {
+  id: 'blackhole',
+  name: 'Sagittarius A* (Gargantua)',
+  hindiName: 'सैजिटेरियस A* (सुपरमैसिव ब्लैक होल)',
+  subtitle: 'Supermassive Galactic Center Black Hole · 4.15M Solar Masses',
+  type: 'Supermassive Black Hole · Event Horizon',
+  orbitRadius: 430,
+  radius: 14,
+  orbitSpeed: 0,
+  rotationSpeed: 0.9,
+  tilt: 0.35,
+  color: '#f59e0b',
+  accentColor: '#a855f7',
+  distanceFromSunKm: '26,670 Light-Years (Galactic Center)',
+  dayLength: 'Spin Parameter a* ≈ 0.90 (Near-Maximal Kerr Spin)',
+  yearLength: '230 Million Years (Galactic Orbit)',
+  temperature: '10,000,000°C Accretion Plasma · 10⁻¹⁴ K Hawking Horizon',
+  gravity: '1.2 × 10¹² m/s² (Light Cannot Escape Inside Rs)',
+  moonsCount: 0,
+  atmosphere: 'Relativistic Magnetized Plasma Accretion Disk & Photon Ring',
+  descriptionEn:
+    'Sagittarius A* is the supermassive black hole at the center of our Milky Way galaxy, containing 4.15 million times the mass of the Sun compressed within a Schwarzschild Event Horizon just 24 million km across. Imaged directly by the Event Horizon Telescope (EHT), its extreme gravity bends spacetime into a glowing photon ring and slows down time itself (Gravitational Time Dilation).',
+  descriptionHi:
+    'सैजिटेरियस A* (Sagittarius A*) हमारी आकाशगंगा (Milky Way) के केंद्र में स्थित एक सुपरमैसिव ब्लैक होल है, जिसका द्रव्यमान हमारे सूर्य से 41.5 लाख गुना अधिक है। इसका गुरुत्वाकर्षण इतना प्रबल है कि "इवेंट होराइजन" (Event Horizon) के भीतर जाने के बाद प्रकाश (Light) भी बाहर नहीं निकल सकता और इसके पास समय की गति धीमी हो जाती है।',
+  funFact:
+    'One hour spent orbiting close to the Event Horizon of a rapidly spinning supermassive black hole can equal years passing on Earth due to Einstein’s General Relativity.',
+  resources: 'Gravitational Lensing · Hawking Quantum Flux · Relativistic Jets',
+};
+
+PLANET_INTERNAL_LAYERS['blackhole'] = [
+  {
+    nameHi: 'रिलेटिविस्टिक एक्रीशन डिस्क (Relativistic Accretion Disk)',
+    nameEn: 'Relativistic Accretion Disk',
+    depthKm: '30M – 150M km span',
+    temp: '10,000,000°C Plasma',
+    color: '#f59e0b',
+    compositionHi: 'प्रकाश की गति के करीब घूमता हुआ अत्यधिक गर्म आयनित गैस और चुंबकीय प्लाज्मा',
+    compositionEn: 'Superheated magnetized plasma orbiting at relativistic velocities',
+  },
+  {
+    nameHi: 'फोटॉन रिंग एवं अर्गोस्फीयर (Photon Sphere & Ergosphere)',
+    nameEn: 'Photon Sphere & Ergosphere',
+    depthKm: '1.5× Schwarzschild Radius (18M km)',
+    temp: 'Extreme Synchrotron Radiation',
+    color: '#fbbf24',
+    compositionHi: 'वह क्षेत्र जहाँ गुरुत्वाकर्षण इतना प्रबल है कि प्रकाश (Photons) भी वृत्ताकार कक्षा में घूमने लगता है',
+    compositionEn: 'Spacetime region where gravity forces photons into unstable circular orbits',
+  },
+  {
+    nameHi: 'इवेंट होराइजन (Event Horizon - Point of No Return)',
+    nameEn: 'Event Horizon (Schwarzschild Boundary)',
+    depthKm: '12 Million km radius',
+    temp: '1.5 × 10⁻¹⁴ Kelvin (Hawking Temp)',
+    color: '#a855f7',
+    compositionHi: 'अंतिम सीमा जिसके पार पलायन वेग (Escape Velocity) प्रकाश की गति (3,00,000 km/s) से अधिक हो जाता है',
+    compositionEn: 'Boundary where escape velocity exceeds the speed of light (c)',
+  },
+  {
+    nameHi: 'गुरुत्वीय सिंगुलैरिटी (Gravitational Singularity)',
+    nameEn: 'Spacetime Singularity / Kerr Ring',
+    depthKm: 'Zero-Volume / Planck Core',
+    temp: 'Infinite Curvature',
+    color: '#ffffff',
+    compositionHi: 'केंद्र बिंदु जहाँ41.5 लाख सूर्यों का द्रव्यमान सिमटा हुआ है और सामान्य भौतिकी के नियम समाप्त हो जाते हैं',
+    compositionEn: 'Central ring singularity where 4.15M solar masses curve spacetime infinitely',
+  },
+];
+
+export interface CosmicQuizQuestion {
+  id: string;
+  questionHi: string;
+  questionEn: string;
+  optionsHi: string[];
+  optionsEn: string[];
+  correctIndex: number;
+  explanationHi: string;
+  explanationEn: string;
+}
+
+export const COSMIC_KNOWLEDGE_QUIZ: CosmicQuizQuestion[] = [
+  {
+    id: 'q1',
+    questionHi: 'ISRO के चंद्रयान-3 ने चंद्रमा के दक्षिणी ध्रुव के पास जिस स्थान पर ऐतिहासिक लैंडिंग की, उसका नाम क्या है?',
+    questionEn: 'What is the official name of the Lunar South Pole site where ISRO’s Chandrayaan-3 Vikram Lander touched down?',
+    optionsHi: ['तिरंगा पॉइंट', 'शिव शक्ति पॉइंट (Shiv Shakti Point)', 'जवाहर पॉइंट', 'सतीश धवन क्रेटर'],
+    optionsEn: ['Tiranga Point', 'Shiv Shakti Point', 'Jawahar Point', 'Sarabhai Basin'],
+    correctIndex: 1,
+    explanationHi: 'चंद्रयान-3 के विक्रम लैंडर ने 23 अगस्त 2023 को 69.37°S, 32.32°E पर सॉफ्ट लैंडिंग की, जिसे आधिकारिक तौर पर "शिव शक्ति पॉइंट" नाम दिया गया।',
+    explanationEn: 'Chandrayaan-3 landed at 69.37°S, 32.32°E on August 23, 2023—officially named Shiv Shakti Point.',
+  },
+  {
+    id: 'q2',
+    questionHi: 'सौर मंडल का सबसे गर्म ग्रह कौन सा है, जहाँ सतह का तापमान +475°C तक पहुँच जाता है?',
+    questionEn: 'Which is the hottest planet in our Solar System with a surface temperature of +475°C?',
+    optionsHi: ['बुध (Mercury)', 'मंगल (Mars)', 'शुक्र (Venus)', 'बृहस्पति (Jupiter)'],
+    optionsEn: ['Mercury', 'Mars', 'Venus', 'Jupiter'],
+    correctIndex: 2,
+    explanationHi: 'शुक्र (Venus) के वायुमंडल में 96.5% कार्बन डाइऑक्साइड है जो अत्यधिक ग्रीनहाउस प्रभाव पैदा करती है, जिससे यह बुध से भी अधिक गर्म है।',
+    explanationEn: 'Venus has a dense 96.5% CO2 atmosphere that traps heat in a runaway greenhouse effect, making it hotter than Mercury.',
+  },
+  {
+    id: 'q3',
+    questionHi: 'हमारी आकाशगंगा (Milky Way) के केंद्र में स्थित सुपरमैसिव ब्लैक होल का नाम क्या है?',
+    questionEn: 'What is the name of the supermassive black hole at the center of our Milky Way galaxy?',
+    optionsHi: ['एंड्रोमेडा A*', 'सैजिटेरियस A* (Sagittarius A*)', 'सिग्नस X-1', 'केप्लर-186f'],
+    optionsEn: ['Andromeda A*', 'Sagittarius A*', 'Cygnus X-1', 'TON 618'],
+    correctIndex: 1,
+    explanationHi: 'सैजिटेरियस A* (Sgr A*) पृथ्वी से 26,670 प्रकाश-वर्ष दूर हमारी आकाशगंगा के केंद्र में स्थित है और इसका द्रव्यमान 41.5 लाख सूर्यों के बराबर है।',
+    explanationEn: 'Sagittarius A* lies 26,670 light-years away at the Milky Way’s center and holds 4.15 million solar masses.',
+  },
+  {
+    id: 'q4',
+    questionHi: 'पृथ्वी का चुंबकीय सुरक्षा कवच (Magnetosphere) पृथ्वी की किस आंतरिक परत से उत्पन्न होता है?',
+    questionEn: 'Which internal layer of Earth generates the planet’s protective magnetic field (Magnetosphere)?',
+    optionsHi: ['भूपर्पटी (Crust)', 'सिलिकेट मेंटल (Mantle)', 'घूमता हुआ तरल बाहरी लौह कोर (Liquid Outer Core)', 'वायुमंडल (Atmosphere)'],
+    optionsEn: ['Continental Crust', 'Silicate Mantle', 'Convecting Liquid Iron Outer Core', 'Troposphere'],
+    correctIndex: 2,
+    explanationHi: 'पृथ्वी के 2,260 किमी मोटे तरल बाहरी कोर (Liquid Outer Core) में पिघले हुए लोहे और निकल के घूमने से जियोडायनेमो (Geodynamo) बनता है।',
+    explanationEn: 'Convection of molten iron and nickel inside Earth’s 2,260-km-thick liquid outer core powers the geodynamo.',
+  },
+  {
+    id: 'q5',
+    questionHi: 'सौर मंडल का सबसे ऊँचा ज्वालामुखी "ओलंपस मॉन्स" (Olympus Mons - 21.9 km ऊँचा) किस ग्रह पर स्थित है?',
+    questionEn: 'On which planet is Olympus Mons—the tallest volcano in the Solar System (21.9 km high)—located?',
+    optionsHi: ['पृथ्वी (Earth)', 'मंगल (Mars)', 'शनि (Saturn)', 'बुध (Mercury)'],
+    optionsEn: ['Earth', 'Mars', 'Saturn', 'Mercury'],
+    correctIndex: 1,
+    explanationHi: 'मंगल ग्रह पर स्थित ओलंपस मॉन्स माउंट एवरेस्ट से लगभग 2.5 गुना ऊँचा है।',
+    explanationEn: 'Olympus Mons on Mars stands 21.9 km high—nearly 2.5 times the height of Mount Everest above sea level.',
+  },
+  {
+    id: 'q6',
+    questionHi: 'हमारे दृश्यमान ब्रह्मांड (Observable Universe) का कुल व्यास लगभग कितना है?',
+    questionEn: 'What is the approximate diameter of the entire Observable Universe?',
+    optionsHi: ['1 लाख प्रकाश-वर्ष', '1 करोड़ प्रकाश-वर्ष', '93 अरब प्रकाश-वर्ष (93 Billion Light-Years)', '500 प्रकाश-वर्ष'],
+    optionsEn: ['100,000 Light-Years', '10 Million Light-Years', '93 Billion Light-Years', '13.8 Million Light-Years'],
+    correctIndex: 2,
+    explanationHi: 'बिग बैंग के बाद अंतरिक्ष के निरंतर फैलाव (Cosmic Expansion) के कारण दृश्यमान ब्रह्मांड का व्यास लगभग 93 अरब प्रकाश-वर्ष है।',
+    explanationEn: 'Due to the metric expansion of space since the Big Bang 13.8 billion years ago, the observable horizon spans ~93 billion light-years.',
+  },
+];
+

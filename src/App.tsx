@@ -9,9 +9,6 @@ import {
 } from './components/SpaceCanvas';
 import {
   SOLAR_SYSTEM_DATA,
-  BUILDABLE_STRUCTURES,
-  STARSHIP_UPGRADES,
-  SPACE_MISSIONS,
   SPACE_PROBES,
   PlanetData,
 } from './data/solarSystemData';
@@ -19,6 +16,8 @@ import {
   HIGH_RES_SPACE_IMAGES,
   PLANET_INTERNAL_LAYERS,
   UNIVERSE_RESEARCH_ARTICLES,
+  BLACK_HOLE_INSPECTOR_DATA,
+  COSMIC_KNOWLEDGE_QUIZ,
   UniverseResearchArticle,
 } from './data/universeResearchData';
 import {
@@ -31,7 +30,6 @@ import { PWAInstallButton, OfflineIndicator } from './pwa/PWAInstallButton';
 import { UpdateAndApkModal } from './components/UpdateAndApkModal';
 import {
   MobileTouchController,
-  TacticalRadarMinimap,
   TouchInputState,
 } from './components/MobileTouchAndRadar';
 
@@ -68,7 +66,53 @@ const INITIAL_TELEMETRY: HudTelemetry = {
   },
   completedMissions: [],
   radarBlips: [],
+  projectedLabels: [],
 };
+
+// Precision Observatory SVG Vector Icons
+const IconScope = () => (
+  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="3" />
+    <line x1="12" y1="1" x2="12" y2="4" />
+    <line x1="12" y1="20" x2="12" y2="23" />
+    <line x1="1" y1="12" x2="4" y2="12" />
+    <line x1="20" y1="12" x2="23" y2="12" />
+  </svg>
+);
+
+const IconRocket = () => (
+  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+    <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+    <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+    <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+  </svg>
+);
+
+const IconGalaxy = () => (
+  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 3a9 9 0 0 1 9 9c0 3.9-2.5 7.2-6 8.4" />
+    <path d="M12 21a9 9 0 0 1-9-9c0-3.9 2.5-7.2 6-8.4" />
+    <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-28 12 12)" />
+  </svg>
+);
+
+const IconQuiz = () => (
+  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+    <circle cx="12" cy="12" r="4" />
+  </svg>
+);
+
+const IconCore = () => (
+  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+  </svg>
+);
 
 export default function App() {
   const canvasRef = useRef<SpaceCanvasHandle>(null);
@@ -84,13 +128,14 @@ export default function App() {
     detectInitialLanguage()
   );
   const [gameState, setGameState] = useState<GameStateMode>('title');
-  const [cameraMode, setCameraMode] = useState<CameraViewMode>('chase');
+  const [cameraMode, setCameraMode] = useState<CameraViewMode>('overview');
   const [graphicsQuality, setGraphicsQuality] =
     useState<GraphicsQualityMode>('ultra');
   const [timeScale, setTimeScale] = useState<number>(1);
   const [telemetry, setTelemetry] = useState<HudTelemetry>(INITIAL_TELEMETRY);
+  const [show3DLabels, setShow3DLabels] = useState<boolean>(true);
 
-  // Solar System Scope style Planet Focus & Inspector Drawer
+  // Solar System Scope Planet & Black Hole Focus + Inspector Drawer
   const [focusPlanetId, setFocusPlanetId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<'overview' | 'core' | 'probes'>('overview');
 
@@ -100,21 +145,16 @@ export default function App() {
     UNIVERSE_RESEARCH_ARTICLES[0]
   );
 
-  // Clean Command Hangar Modal (Base Building, Ship Upgrades, Missions, Settings)
-  const [showCommandModal, setShowCommandModal] = useState<boolean>(false);
-  const [commandTab, setCommandTab] = useState<'build' | 'hangar' | 'missions' | 'settings'>('build');
+  // Cosmic Knowledge Quiz, ISRO/NASA Probes & Observatory Settings Modal
+  const [showKnowledgeModal, setShowKnowledgeModal] = useState<boolean>(false);
+  const [knowledgeTab, setKnowledgeTab] = useState<'quiz' | 'probes' | 'settings'>('quiz');
+  const [quizIndex, setQuizIndex] = useState<number>(0);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [quizScore, setQuizScore] = useState<number>(0);
 
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [showUpdateModal, setShowUpdateModal] = useState<boolean>(false);
-
-  const [showTouchPad, setShowTouchPad] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return (
-      'ontouchstart' in window ||
-      navigator.maxTouchPoints > 0 ||
-      window.innerWidth < 820
-    );
-  });
+  const [showTouchPad, setShowTouchPad] = useState<boolean>(false);
 
   const t = getUIStrings(langCode);
   const currentLangObj =
@@ -133,9 +173,12 @@ export default function App() {
 
   const getLocalizedPlanetName = useCallback(
     (planet: PlanetData) => {
+      if (planet.id === 'blackhole') {
+        return isHindi ? 'सैजिटेरियस A* (ब्लैक होल)' : 'Sagittarius A* (Black Hole)';
+      }
       return t.planetNames[planet.id] || planet.hindiName || planet.name;
     },
-    [t]
+    [t, isHindi]
   );
 
   useEffect(() => {
@@ -145,42 +188,34 @@ export default function App() {
           setShowResearchHub(false);
           return;
         }
-        if (showCommandModal) {
-          setShowCommandModal(false);
+        if (showKnowledgeModal) {
+          setShowKnowledgeModal(false);
           return;
         }
         if (focusPlanetId) {
           setFocusPlanetId(null);
           return;
         }
-        setGameState((prev) =>
-          prev === 'playing' ? 'paused' : prev === 'paused' ? 'playing' : prev
-        );
       } else if (e.code === 'KeyC' && gameState === 'playing') {
         setFocusPlanetId((prev) =>
           prev ? null : telemetry.nearestPlanet.id
         );
       } else if (e.code === 'KeyU' && gameState === 'playing') {
         setShowResearchHub((prev) => !prev);
-      } else if (e.code === 'KeyB' && gameState === 'playing') {
-        setShowCommandModal((prev) => !prev);
+      } else if (e.code === 'KeyL' && gameState === 'playing') {
+        setShow3DLabels((prev) => !prev);
       } else if (e.code === 'KeyV' && gameState === 'playing') {
         setFocusPlanetId(null);
         setCameraMode((prev) =>
-          prev === 'chase'
-            ? 'overview'
-            : prev === 'overview'
+          prev === 'overview'
+            ? 'chase'
+            : prev === 'chase'
               ? 'cockpit'
-              : 'chase'
+              : 'overview'
         );
       } else if (e.code === 'KeyP' && gameState === 'playing') {
         setFocusPlanetId(null);
         canvasRef.current?.toggleAutoPilot();
-      } else if (
-        (e.code === 'KeyR' || e.code === 'KeyF') &&
-        gameState === 'playing'
-      ) {
-        canvasRef.current?.fireHomingMissile();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -189,26 +224,28 @@ export default function App() {
     gameState,
     telemetry.nearestPlanet.id,
     showResearchHub,
-    showCommandModal,
+    showKnowledgeModal,
     focusPlanetId,
   ]);
 
-  const handleStartExploreScope = () => {
+  const handleStartSolarScope = () => {
+    soundEngine.playWarp();
+    setCameraMode('overview');
+    setFocusPlanetId(null);
+    setGameState('playing');
+  };
+
+  const handleStartEarthCore = () => {
     soundEngine.playWarp();
     setGameState('playing');
     setFocusPlanetId('earth');
-    setInspectorTab('overview');
+    setInspectorTab('core');
   };
 
-  const handleStartFlightMode = () => {
+  const handleStartGuidedTour = () => {
     soundEngine.playWarp();
     setFocusPlanetId(null);
-    setGameState('playing');
-  };
-
-  const handleStartAutoPlay = () => {
-    soundEngine.playWarp();
-    setFocusPlanetId(null);
+    setCameraMode('chase');
     setGameState('playing');
     setTimeout(() => {
       if (!telemetry.autoPilotActive) {
@@ -217,41 +254,37 @@ export default function App() {
     }, 120);
   };
 
-  const handleRestartGame = () => {
-    canvasRef.current?.resetMission();
-    setFocusPlanetId(null);
-    setGameState('playing');
-  };
-
   const handleToggleMute = () => {
     const next = !isMuted;
     setIsMuted(next);
     soundEngine.setMuted(next);
   };
 
-  const handleSelectPlanetInScope = (planet: PlanetData) => {
+  const handleSelectPlanetInScope = (planetId: string) => {
     soundEngine.playCollect();
-    setFocusPlanetId(planet.id);
-    canvasRef.current?.warpToPlanet(planet.id);
+    if (planetId === 'blackhole') {
+      canvasRef.current?.warpToBlackHole();
+      setFocusPlanetId('blackhole');
+      setInspectorTab('overview');
+      return;
+    }
+    setFocusPlanetId(planetId);
+    canvasRef.current?.warpToPlanet(planetId);
   };
 
-  const focusedPlanetData =
-    focusPlanetId && focusPlanetId !== 'blackhole'
-      ? SOLAR_SYSTEM_DATA.find((p) => p.id === focusPlanetId) || null
-      : null;
+  // Supports all 10 Solar System worlds AND Sagittarius A* Supermassive Black Hole!
+  const focusedPlanetData: PlanetData | null =
+    focusPlanetId === 'blackhole'
+      ? (BLACK_HOLE_INSPECTOR_DATA as PlanetData)
+      : focusPlanetId
+        ? SOLAR_SYSTEM_DATA.find((p) => p.id === focusPlanetId) || null
+        : null;
 
   const focusedPlanetLayers = focusedPlanetData
     ? PLANET_INTERNAL_LAYERS[focusedPlanetData.id] || []
     : [];
 
-  const hullPct = Math.max(
-    0,
-    Math.min(100, Math.round((telemetry.hull / telemetry.maxHull) * 100))
-  );
-  const shieldPct = Math.max(
-    0,
-    Math.min(100, Math.round((telemetry.shield / telemetry.maxShield) * 100))
-  );
+  const currentQuiz = COSMIC_KNOWLEDGE_QUIZ[quizIndex] || COSMIC_KNOWLEDGE_QUIZ[0];
 
   return (
     <div
@@ -260,7 +293,7 @@ export default function App() {
     >
       <OfflineIndicator />
 
-      {/* Primary 100vw x 100vh 3D WebGL Solar System & Deep Space Canvas */}
+      {/* Primary 100vw x 100vh 3D WebGL Solar System & Deep Space Observatory Canvas */}
       <SpaceCanvas
         ref={canvasRef}
         gameState={gameState}
@@ -268,9 +301,14 @@ export default function App() {
         graphicsQuality={graphicsQuality}
         timeScale={timeScale}
         focusPlanetId={focusPlanetId}
+        showCoreCutaway={Boolean(
+          focusPlanetId &&
+            focusPlanetId !== 'blackhole' &&
+            inspectorTab === 'core'
+        )}
         touchInputRef={touchInputRef}
         onTelemetryUpdate={setTelemetry}
-        onGameEnd={(res) => setGameState(res)}
+        onGameEnd={() => {}}
         onSelectPlanetCodex={(planet) => {
           setFocusPlanetId(planet.id);
           setInspectorTab('overview');
@@ -278,22 +316,59 @@ export default function App() {
       />
 
       {/* =====================================================================
-          1. PLAY-STORE-GRADE CINEMATIC TITLE SCREEN
+          FLOATING 3D PLANET & BLACK HOLE LABELS (SOLAR SYSTEM SCOPE STYLE)
+         ===================================================================== */}
+      {gameState === 'playing' &&
+        show3DLabels &&
+        !focusPlanetId &&
+        !showResearchHub &&
+        !showKnowledgeModal &&
+        telemetry.projectedLabels && (
+          <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+            {telemetry.projectedLabels.map((lbl) =>
+              lbl.visible ? (
+                <button
+                  key={lbl.id}
+                  onClick={() => handleSelectPlanetInScope(lbl.id)}
+                  style={{
+                    left: `${lbl.x}%`,
+                    top: `${lbl.y}%`,
+                    transform: 'translate(-50%, -100%)',
+                  }}
+                  className="pointer-events-auto absolute flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#060c1d]/85 hover:bg-amber-400 hover:text-slate-950 border border-slate-700/80 hover:border-amber-300 text-[11px] font-display font-semibold text-slate-100 shadow-md transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: lbl.color }}
+                  />
+                  <span>
+                    {t.planetNames[lbl.id] || (isHindi ? lbl.hindiName : lbl.name)}
+                  </span>
+                </button>
+              ) : null
+            )}
+          </div>
+        )}
+
+      {/* =====================================================================
+          1. WORLD-CLASS 3D SPACE ENCYCLOPEDIA & OBSERVATORY TITLE SCREEN
          ===================================================================== */}
       {gameState === 'title' && (
         <div className="absolute inset-0 z-20 flex flex-col justify-between p-4 sm:p-8 bg-gradient-to-r from-[#040711]/95 via-[#040711]/75 to-transparent">
           {/* Top Clean Navigation Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-400 flex items-center justify-center text-slate-950 font-display font-bold text-sm shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-slate-950 font-display font-bold text-xs shadow-lg">
                 3D
               </div>
               <div>
-                <div className="font-display font-bold text-white tracking-wider text-sm">
-                  ASTRAL ODYSSEY
+                <div className="font-display font-bold text-white tracking-wider text-sm sm:text-base">
+                  ASTRAL ODYSSEY · COSMOS ENCYCLOPEDIA
                 </div>
-                <div className="text-[11px] font-mono text-sky-400">
-                  {t.appSubtitle}
+                <div className="text-[11px] font-mono text-sky-400 tracking-wide">
+                  {isHindi
+                    ? 'संपूर्ण 3D सौर मंडल, ग्रह आंतरिक संरचना (Core X-Ray) और ब्रह्मांड ज्ञानकोश'
+                    : 'Interactive 3D Solar System Scope, Planetary Core Cutaways & Universe Research Atlas'}
                 </div>
               </div>
             </div>
@@ -309,9 +384,9 @@ export default function App() {
                 <span>{t.updateBtn}</span>
               </button>
 
-              {/* 36-Language Selector */}
+              {/* 36-Language Global Selector */}
               <label className="flex items-center gap-1.5 bg-[#0b1329] border border-slate-700/90 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
-                <span>🌐</span>
+                <span className="font-mono text-[10px] text-sky-400 uppercase">36 LANG</span>
                 <select
                   value={langCode}
                   onChange={(e) => handleLanguageChange(e.target.value)}
@@ -338,47 +413,66 @@ export default function App() {
             </div>
           </div>
 
-          {/* Center Hero Content + High-Res Universe Preview Card */}
+          {/* Center Hero Content + 8K Universe Encyclopedia Preview Card */}
           <div className="my-auto grid grid-cols-1 lg:grid-cols-12 gap-6 items-center max-w-6xl">
             <div className="lg:col-span-7 pointer-events-auto">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-sky-500/15 border border-sky-400/40 text-xs font-mono text-sky-300 mb-4">
-                <span>SOLAR SYSTEM SCOPE 3D</span>
+                <span>GLOBAL 3D SPACE ENCYCLOPEDIA</span>
                 <span>·</span>
-                <span>NASA / ISRO / JWST ATLAS</span>
+                <span>ISRO · NASA · JWST · EHT</span>
               </div>
 
               <h1
-                className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-white leading-[1.1] mb-4"
+                className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-white leading-[1.12] mb-4"
                 style={{ textWrap: 'balance' }}
               >
-                {t.heroTitle}
+                {isHindi
+                  ? 'संपूर्ण ब्रह्मांड और 3D सौर मंडल का प्रत्यक्ष वैज्ञानिक दर्शन'
+                  : 'Explore the Complete 3D Solar System, Planetary Cores & Deep Universe'}
               </h1>
 
               <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-xl mb-6">
-                {t.heroDesc}
+                {isHindi
+                  ? 'सूर्य से प्लूटो और सुपरमैसिव ब्लैक होल (Sagittarius A*) तक 360° में घुमाकर देखें। किसी भी ग्रह या सूर्य को काटकर (3D Core Cutaway) उसकी आंतरिक परतें, चंद्रयान-3, आदित्य-L1, जेम्स वेब टेलीस्कोप और 93 अरब प्रकाश-वर्ष के ब्रह्मांड का संपूर्ण ज्ञान प्राप्त करें।'
+                  : 'Rotate 360° around every planet, peel open true 3D interior core cutaways from the Sun to Pluto, inspect Sagittarius A* Black Hole, and study landmark discoveries from ISRO Chandrayaan-3, Aditya-L1, and JWST.'}
               </p>
 
-              {/* 3 Crystal-Clear Mode Launch Buttons */}
+              {/* 3 Pure Educational & Exploration Launch Buttons */}
               <div className="flex flex-wrap items-center gap-3">
                 <button
-                  onClick={handleStartExploreScope}
-                  className="px-6 py-3.5 text-sm font-display font-bold tracking-wide text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-lg transition-transform active:scale-95 cursor-pointer whitespace-nowrap"
+                  onClick={handleStartSolarScope}
+                  className="flex items-center gap-2 px-6 py-3.5 text-sm font-display font-bold tracking-wide text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-lg transition-transform active:scale-95 cursor-pointer whitespace-nowrap"
                 >
-                  🔭 {isHindi ? '3D सौर मंडल और ब्रह्मांड देखें' : 'Explore 3D Solar Scope'}
+                  <IconScope />
+                  <span>
+                    {isHindi
+                      ? '3D सौर मंडल वेधशाला खोलें (Solar Scope)'
+                      : 'Launch 3D Solar System Scope'}
+                  </span>
                 </button>
 
                 <button
-                  onClick={handleStartAutoPlay}
-                  className="px-5 py-3.5 text-sm font-display font-bold text-slate-950 bg-sky-400 hover:bg-sky-300 rounded-xl shadow-md transition-colors cursor-pointer whitespace-nowrap"
+                  onClick={handleStartEarthCore}
+                  className="flex items-center gap-2 px-5 py-3.5 text-sm font-display font-bold text-slate-950 bg-sky-400 hover:bg-sky-300 rounded-xl shadow-md transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  🚀 {t.autoPlayBtn}
+                  <IconCore />
+                  <span>
+                    {isHindi
+                      ? '3D ग्रह आंतरिक कोर एक्स-रे देखें'
+                      : 'Inspect 3D Planet Core Cutaway'}
+                  </span>
                 </button>
 
                 <button
-                  onClick={handleStartFlightMode}
-                  className="px-5 py-3.5 text-sm font-medium text-white bg-[#0d1730] hover:bg-[#162447] border border-slate-700 rounded-xl transition-colors cursor-pointer whitespace-nowrap"
+                  onClick={handleStartGuidedTour}
+                  className="flex items-center gap-2 px-5 py-3.5 text-sm font-medium text-white bg-[#0d1730] hover:bg-[#162447] border border-slate-700 rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  🎮 {t.startBtn}
+                  <IconRocket />
+                  <span>
+                    {isHindi
+                      ? 'स्वचालित ब्रह्मांड यात्रा (Guided Tour)'
+                      : 'Start Guided Solar Tour'}
+                  </span>
                 </button>
               </div>
             </div>
@@ -401,26 +495,26 @@ export default function App() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#080f20] via-[#080f20]/30 to-transparent" />
                   <span className="absolute top-3 left-3 rounded-md bg-amber-400 px-2.5 py-1 text-[10px] font-display font-bold text-slate-950">
-                    NEW · COMPLETE UNIVERSE RESEARCH
+                    COMPLETE ASTROPHYSICS &amp; SPACE RESEARCH ATLAS
                   </span>
                 </div>
 
                 <div className="p-4 space-y-2">
                   <div className="font-display font-bold text-base text-white group-hover:text-amber-300 transition-colors">
                     {isHindi
-                      ? '🌌 संपूर्ण ब्रह्मांड ज्ञानकोश: चंद्रयान-3, ब्लैक होल और JWST'
-                      : '🌌 Complete Universe Atlas: Chandrayaan-3, Black Holes & JWST'}
+                      ? 'संपूर्ण ब्रह्मांड ज्ञानकोश: चंद्रयान-3, ब्लैक होल और JWST'
+                      : 'Complete Universe Atlas: Chandrayaan-3, Black Holes & JWST'}
                   </div>
                   <p className="text-xs text-slate-300 leading-relaxed">
                     {isHindi
-                      ? 'सूर्य से प्लूटो की आंतरिक परतें (Core Cutaway), सुपरमैसिव ब्लैक होल Sagittarius A*, जेम्स वेब नेबुला और 93 अरब प्रकाश-वर्ष का ब्रह्मांड।'
-                      : 'Explore planetary core cutaways, Sagittarius A* Black Hole, JWST Pillars of Creation, and 93B light-years of cosmic research.'}
+                      ? 'सूर्य से प्लूटो की 3D आंतरिक परतें (Core Cutaway), सुपरमैसिव ब्लैक होल Sagittarius A*, जेम्स वेब नेबुला और 93 अरब प्रकाश-वर्ष का ब्रह्मांड।'
+                      : 'Explore live 3D planetary core cutaways, Sagittarius A* Black Hole, JWST Pillars of Creation, and 93B light-years of cosmic research.'}
                   </p>
                   <div className="pt-1 text-xs font-mono text-sky-400 flex items-center justify-between">
                     <span>
                       {isHindi
-                        ? '6 हाई-डेफिनिशन रिसर्च अध्याय →'
-                        : '6 HD Research Chapters →'}
+                        ? '6 हाई-डेफिनिशन रिसर्च अध्याय खोलें →'
+                        : 'Open 6 HD Research Chapters →'}
                     </span>
                     <span className="text-amber-300 font-bold">OPEN ATLAS</span>
                   </div>
@@ -433,16 +527,16 @@ export default function App() {
           <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-800/80 text-xs font-mono text-slate-400">
             <div>
               {isHindi
-                ? 'ग्रह पर टैप करें = 3D ज़ूम और आंतरिक कोर · Auto-Play = यान खुद उड़ेगा'
-                : 'Tap any planet = 3D Orbital Zoom & Core Cutaway · Auto-Play = Autonomous AI Tour'}
+                ? 'उंगली/माउस से 360° घुमाएँ · पिंच/स्क्रॉल से ज़ूम करें · किसी भी ग्रह पर टैप करके उसकी 3D आंतरिक कोर देखें'
+                : 'Drag 360° to Rotate · Pinch/Scroll to Zoom · Tap any world for 3D Core Cutaway & Encyclopedia'}
             </div>
             <div className="flex items-center gap-3">
               <span className="text-emerald-400">
-                ★ {t.graphicsQuality}: {graphicsQuality.toUpperCase()}
+                36 GLOBAL LANGUAGES
               </span>
               <span>·</span>
               <span className="text-amber-400">
-                {t.scanned}: {telemetry.scannedPlanets.length}/10
+                100% SCIENTIFIC &amp; EDUCATIONAL
               </span>
             </div>
           </div>
@@ -450,146 +544,165 @@ export default function App() {
       )}
 
       {/* =====================================================================
-          2. ULTRA-CLEAN "SOLAR SYSTEM SCOPE" + FLIGHT HUD (85%+ CLEAR VIEWPORT)
+          2. ULTRA-CLEAN SINGLE-ROW "SOLAR SYSTEM SCOPE" OBSERVATORY HUD
          ===================================================================== */}
       {gameState !== 'title' && (
-        <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">
-          {/* TOP BAR: 3 Clean Zones */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {/* Top-Left: Compact Starship Status & Radar */}
-            <div className="pointer-events-auto flex items-center gap-2.5 bg-[#070c1a]/92 border border-slate-800 rounded-xl px-3 py-2 shadow-lg">
-              <div className="hidden sm:block">
-                <TacticalRadarMinimap
-                  blips={telemetry.radarBlips}
-                  shipYaw={telemetry.shipYaw}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5 min-w-[185px]">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-display font-bold text-xs text-white tracking-wider">
-                    🚀 VAJRA-IX
-                  </span>
-                  <span className="font-mono text-[11px] text-sky-400 tabular-nums">
-                    {telemetry.speed} km/s
-                  </span>
+        <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-2 sm:p-3.5">
+          {/* SINGLE COMPACT TOP BAR (Never crowds mobile screens!) */}
+          <div className="pointer-events-auto flex flex-wrap items-center justify-between gap-1.5 bg-[#060b18]/92 border border-slate-800/90 rounded-2xl px-2.5 py-1.5 shadow-xl">
+            {/* Left: Brand & Orbital Time-Speed Scrubber */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setGameState('title')}
+                className="flex items-center gap-2 pr-2 border-r border-slate-800 cursor-pointer group"
+                title="Return to Title Screen"
+              >
+                <div className="w-7 h-7 rounded-lg bg-amber-400 flex items-center justify-center text-slate-950 font-display font-bold text-xs">
+                  3D
                 </div>
-
-                {/* Compact Hull & Shield Bars */}
-                <div className="grid grid-cols-2 gap-2 text-[10px] font-mono tabular-nums">
-                  <div>
-                    <div className="flex justify-between text-slate-400 mb-0.5">
-                      <span>{t.hull}</span>
-                      <span className="text-emerald-400">{telemetry.hull}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-800 rounded-sm overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-400 transition-all duration-150"
-                        style={{ width: `${hullPct}%` }}
-                      />
-                    </div>
+                <div className="hidden sm:block text-left">
+                  <div className="font-display font-bold text-xs text-white group-hover:text-amber-300 leading-none">
+                    COSMOS SCOPE
                   </div>
-
-                  <div>
-                    <div className="flex justify-between text-slate-400 mb-0.5">
-                      <span>{t.shield}</span>
-                      <span className="text-sky-400">{telemetry.shield}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-800 rounded-sm overflow-hidden">
-                      <div
-                        className="h-full bg-sky-400 transition-all duration-150"
-                        style={{ width: `${shieldPct}%` }}
-                      />
-                    </div>
+                  <div className="text-[10px] font-mono text-sky-400 mt-0.5">
+                    {telemetry.scannedPlanets.length}/10 Worlds Explored
                   </div>
                 </div>
+              </button>
 
-                <div className="flex items-center justify-between text-[10px] font-mono text-slate-300 pt-0.5 border-t border-slate-800/80">
-                  <span>
-                    💎 <strong className="text-sky-400">{telemetry.crystals}</strong>
-                  </span>
-                  <span>
-                    ⚙️ <strong className="text-amber-400">{telemetry.titanium}</strong>
-                  </span>
-                  <span>
-                    ★ <strong className="text-white">{telemetry.score}</strong>
-                  </span>
-                </div>
+              {/* Orbital Time-Speed Scrubber */}
+              <div className="flex items-center gap-0.5 bg-[#0c152a] border border-slate-800 rounded-lg p-0.5 font-mono text-[10px]">
+                {[
+                  { label: 'PAUSE', val: 0 },
+                  { label: '0.5×', val: 0.5 },
+                  { label: '1×', val: 1 },
+                  { label: '3×', val: 3 },
+                ].map((spd) => (
+                  <button
+                    key={spd.val}
+                    onClick={() => setTimeScale(spd.val)}
+                    className={`px-2 py-1 rounded-md cursor-pointer transition ${
+                      timeScale === spd.val
+                        ? 'bg-amber-400 text-slate-950 font-bold'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {spd.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Top-Center: Clean 4-Button Mode Bar (Solar Scope / Auto-Tour / Universe Atlas / Command Hangar) */}
-            <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 bg-[#070c1a]/92 border border-slate-800 rounded-xl p-1.5 shadow-lg">
+            {/* Center: 4 Pure Knowledge & Exploration Modes */}
+            <div className="flex flex-wrap items-center gap-1">
               <button
                 onClick={() => {
                   if (focusPlanetId) {
                     setFocusPlanetId(null);
+                    setCameraMode('overview');
                   } else {
-                    setFocusPlanetId(telemetry.nearestPlanet.id);
+                    setFocusPlanetId('earth');
                     setInspectorTab('overview');
                   }
                 }}
-                className={`px-3 py-1.5 text-xs font-display font-bold rounded-lg transition cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-display font-bold rounded-xl transition cursor-pointer whitespace-nowrap ${
                   focusPlanetId
                     ? 'bg-amber-400 text-slate-950 shadow-sm'
                     : 'text-slate-200 hover:bg-slate-800'
                 }`}
               >
-                🔭 {isHindi ? 'ग्रह ज़ूम (Scope)' : 'Planet Scope'}
+                <IconScope />
+                <span>
+                  {focusPlanetId
+                    ? isHindi
+                      ? 'संपूर्ण सौर नक्शा (3D Map)'
+                      : 'Full 3D Solar Map'
+                    : isHindi
+                      ? 'ग्रह एक्स-रे (Inspect)'
+                      : 'Inspect Planet'}
+                </span>
               </button>
 
               <button
                 onClick={() => {
                   setFocusPlanetId(null);
+                  setCameraMode('chase');
                   canvasRef.current?.toggleAutoPilot();
                 }}
-                className={`px-3 py-1.5 text-xs font-display font-bold rounded-lg transition cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-display font-bold rounded-xl transition cursor-pointer whitespace-nowrap ${
                   telemetry.autoPilotActive
                     ? 'bg-emerald-400 text-slate-950 shadow-sm'
                     : 'text-sky-300 hover:bg-slate-800'
                 }`}
               >
-                🚀 {telemetry.autoPilotActive ? t.autoPilotOn : t.autoPilotOff}
+                <IconRocket />
+                <span>
+                  {telemetry.autoPilotActive
+                    ? isHindi
+                      ? 'गाइडेड टूर चालू'
+                      : 'Tour Active'
+                    : isHindi
+                      ? 'गाइडेड टूर (Auto Tour)'
+                      : 'Guided Tour'}
+                </span>
               </button>
 
               <button
                 onClick={() => setShowResearchHub(true)}
-                className="px-3 py-1.5 text-xs font-display font-bold rounded-lg bg-sky-500/20 border border-sky-400/50 text-sky-200 hover:bg-sky-500/30 transition cursor-pointer whitespace-nowrap"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-display font-bold rounded-xl bg-sky-500/20 border border-sky-400/50 text-sky-200 hover:bg-sky-500/30 transition cursor-pointer whitespace-nowrap"
               >
-                🌌 {isHindi ? 'ब्रह्मांड रिसर्च' : 'Universe Atlas'}
+                <IconGalaxy />
+                <span>{isHindi ? 'ब्रह्मांड ज्ञानकोश' : 'Universe Atlas'}</span>
               </button>
 
               <button
-                onClick={() => setShowCommandModal(true)}
-                className="px-3 py-1.5 text-xs font-display font-bold rounded-lg bg-[#101c38] border border-slate-700 text-amber-300 hover:border-amber-400 transition cursor-pointer whitespace-nowrap"
+                onClick={() => setShowKnowledgeModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-display font-bold rounded-xl bg-[#101c38] border border-slate-700 text-amber-300 hover:border-amber-400 transition cursor-pointer whitespace-nowrap"
               >
-                🛠️ {isHindi ? 'बेस और अपग्रेड' : 'Base & Hangar'}
+                <IconQuiz />
+                <span>{isHindi ? 'क्विज़ व मिशन' : 'Quiz & Probes'}</span>
               </button>
             </div>
 
-            {/* Top-Right: Camera View, Language & Pause */}
-            <div className="pointer-events-auto flex items-center gap-1.5 bg-[#070c1a]/92 border border-slate-800 rounded-xl px-3 py-2 shadow-lg text-xs">
+            {/* Right: 3D Labels Toggle, Camera View & 36-Language Selector */}
+            <div className="flex items-center gap-1.5 text-xs">
+              <button
+                onClick={() => setShow3DLabels((prev) => !prev)}
+                className={`hidden sm:inline-flex px-2 py-1 rounded-lg border font-mono text-[10px] cursor-pointer transition ${
+                  show3DLabels
+                    ? 'bg-sky-500/20 border-sky-400/60 text-sky-200'
+                    : 'bg-slate-900 border-slate-800 text-slate-400'
+                }`}
+                title="Toggle 3D Floating Planet Names (L)"
+              >
+                {show3DLabels ? 'LABELS ON' : 'LABELS OFF'}
+              </button>
+
               <button
                 onClick={() => {
                   setFocusPlanetId(null);
                   setCameraMode((prev) =>
-                    prev === 'chase'
-                      ? 'overview'
-                      : prev === 'overview'
+                    prev === 'overview'
+                      ? 'chase'
+                      : prev === 'chase'
                         ? 'cockpit'
-                        : 'chase'
+                        : 'overview'
                   );
                 }}
-                className="px-2.5 py-1 rounded-md bg-[#0e1933] border border-slate-700 text-sky-300 hover:text-white font-mono cursor-pointer whitespace-nowrap"
+                className="px-2 py-1 rounded-lg bg-[#0e1933] border border-slate-700 text-sky-300 hover:text-white font-mono text-[11px] cursor-pointer whitespace-nowrap"
                 title="Switch Camera View (V)"
               >
-                🎥 {cameraMode === 'overview' ? 'Solar Map' : cameraMode === 'cockpit' ? 'Cockpit' : '3D Ship'}
+                {cameraMode === 'overview'
+                  ? '3D Map'
+                  : cameraMode === 'cockpit'
+                    ? 'Cockpit'
+                    : 'Spacecraft'}
               </button>
 
               <select
                 value={langCode}
                 onChange={(e) => handleLanguageChange(e.target.value)}
-                className="bg-[#0e1933] text-amber-300 border border-slate-700 rounded-md px-2 py-1 text-xs focus:outline-none cursor-pointer"
+                className="bg-[#0e1933] text-amber-300 border border-slate-700 rounded-lg px-2 py-1 text-xs focus:outline-none cursor-pointer"
               >
                 {SUPPORTED_LANGUAGES.map((l) => (
                   <option
@@ -601,37 +714,42 @@ export default function App() {
                   </option>
                 ))}
               </select>
-
-              <button
-                onClick={() => setGameState('paused')}
-                className="px-2.5 py-1 rounded-md bg-slate-800 text-slate-200 hover:text-white cursor-pointer"
-              >
-                ⏸
-              </button>
             </div>
           </div>
 
-          {/* Dynamic Center Notification Toast */}
-          {telemetry.activeAlert && (
-            <div className="pointer-events-none mx-auto bg-[#0b1329]/95 border border-amber-400/60 text-amber-200 px-4 py-1.5 rounded-lg text-xs font-mono tracking-wide shadow-md max-w-md text-center">
+          {/* Interactive 360° Guidance Banner */}
+          {telemetry.activeAlert ? (
+            <div className="pointer-events-none mx-auto bg-[#0b1329]/95 border border-amber-400/60 text-amber-200 px-3.5 py-1 rounded-lg text-xs font-mono tracking-wide shadow-md max-w-md text-center">
               {telemetry.activeAlert}
+            </div>
+          ) : (
+            <div className="pointer-events-none mx-auto bg-[#070d1e]/85 border border-slate-800 text-slate-300 px-3 py-1 rounded-lg text-[11px] font-mono tracking-wide shadow-sm text-center">
+              {focusPlanetId
+                ? isHindi
+                  ? '360° घुमाने के लिए स्क्रीन ड्रैग करें · पिंच या माउस व्हील से ज़ूम करें'
+                  : 'Drag anywhere to rotate 360° · Pinch or Scroll wheel to zoom in/out'
+                : isHindi
+                  ? 'किसी भी ग्रह के नाम पर टैप करें या 360° में पूरा सौर मंडल घुमाकर देखें'
+                  : 'Tap any planet label to inspect in 3D or drag 360° across the Solar System'}
             </div>
           )}
 
           {/* =================================================================
-              SOLAR SYSTEM SCOPE SIDE INSPECTOR DRAWER (WHEN A PLANET IS SELECTED)
+              RESPONSIVE PLANET & BLACK HOLE INSPECTOR
+              (Compact Bottom-Sheet on Mobile so 3D Planet stays 100% visible,
+               Right-Side Observatory Drawer on Desktop!)
              ================================================================= */}
           {focusedPlanetData && (
-            <div className="pointer-events-auto my-auto ml-auto w-full max-w-md bg-[#070d1e]/95 border border-slate-700/90 rounded-2xl p-4 sm:p-5 shadow-2xl text-white max-h-[72vh] flex flex-col">
+            <div className="pointer-events-auto mt-auto lg:my-auto lg:ml-auto w-full lg:max-w-md bg-[#070d1e]/95 border border-slate-700/90 rounded-2xl p-3.5 sm:p-5 shadow-2xl text-white max-h-[42vh] lg:max-h-[72vh] flex flex-col">
               {/* Drawer Header */}
-              <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
+              <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-800">
                 <div>
-                  <div className="text-[11px] font-mono text-amber-400 uppercase">
+                  <div className="text-[10px] font-mono text-amber-400 uppercase">
                     {focusedPlanetData.type} · {focusedPlanetData.subtitle}
                   </div>
-                  <h2 className="font-display text-2xl font-bold text-white flex items-center gap-2 mt-0.5">
+                  <h2 className="font-display text-lg sm:text-2xl font-bold text-white flex flex-wrap items-center gap-2 mt-0.5">
                     <span>{getLocalizedPlanetName(focusedPlanetData)}</span>
-                    <span className="text-sm font-normal text-sky-400">
+                    <span className="text-xs font-normal text-sky-400">
                       ({focusedPlanetData.name})
                     </span>
                   </h2>
@@ -639,14 +757,14 @@ export default function App() {
 
                 <button
                   onClick={() => setFocusPlanetId(null)}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-200 cursor-pointer shrink-0"
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-amber-300 cursor-pointer shrink-0"
                 >
-                  ✕ {isHindi ? 'फ्री फ्लाइट' : 'Free Flight'}
+                  ✕ {isHindi ? 'सौर नक्शा' : 'Solar Map'}
                 </button>
               </div>
 
-              {/* Inspector Sub-Tabs: Overview / Internal Core Cutaway / Probes */}
-              <div className="grid grid-cols-3 gap-1 bg-[#0c162c] p-1 rounded-xl my-3 text-xs font-display font-bold">
+              {/* Inspector Sub-Tabs: Overview / 3D Core Structure / Space Missions */}
+              <div className="grid grid-cols-3 gap-1 bg-[#0c162c] p-1 rounded-xl my-2.5 text-xs font-display font-bold shrink-0">
                 <button
                   onClick={() => setInspectorTab('overview')}
                   className={`py-1.5 rounded-lg cursor-pointer transition ${
@@ -655,17 +773,26 @@ export default function App() {
                       : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  🪐 {isHindi ? 'परिचय' : 'Overview'}
+                  {isHindi ? 'विज्ञान डेटा' : 'Overview'}
                 </button>
                 <button
                   onClick={() => setInspectorTab('core')}
-                  className={`py-1.5 rounded-lg cursor-pointer transition ${
+                  className={`flex items-center justify-center gap-1 py-1.5 rounded-lg cursor-pointer transition ${
                     inspectorTab === 'core'
                       ? 'bg-amber-400 text-slate-950'
                       : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  🔥 {isHindi ? 'आंतरिक परतें' : 'Core Layers'}
+                  <IconCore />
+                  <span>
+                    {focusedPlanetData.id === 'blackhole'
+                      ? isHindi
+                        ? 'इवेंट होराइजन'
+                        : 'Horizon Layers'
+                      : isHindi
+                        ? '3D कोर कटअवे'
+                        : '3D Core X-Ray'}
+                  </span>
                 </button>
                 <button
                   onClick={() => setInspectorTab('probes')}
@@ -675,12 +802,12 @@ export default function App() {
                       : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  🛰️ {isHindi ? 'मिशन व बेस' : 'Missions'}
+                  {isHindi ? 'वायुमंडल व रोचक तथ्य' : 'Facts & Moons'}
                 </button>
               </div>
 
-              {/* Tab Content */}
-              <div className="overflow-y-auto pr-1 space-y-3 text-xs">
+              {/* Scrollable Scientific Content */}
+              <div className="overflow-y-auto pr-1 space-y-2.5 text-xs">
                 {inspectorTab === 'overview' && (
                   <>
                     <p className="text-slate-200 leading-relaxed bg-[#0c162e] border border-slate-800 rounded-xl p-3">
@@ -690,7 +817,7 @@ export default function App() {
                     </p>
 
                     <div className="grid grid-cols-2 gap-2 font-mono tabular-nums">
-                      <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2.5">
+                      <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
                         <div className="text-[10px] text-slate-400">
                           {t.distanceFromSun}
                         </div>
@@ -698,7 +825,7 @@ export default function App() {
                           {focusedPlanetData.distanceFromSunKm}
                         </div>
                       </div>
-                      <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2.5">
+                      <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
                         <div className="text-[10px] text-slate-400">
                           {t.orbitalPeriod}
                         </div>
@@ -706,7 +833,7 @@ export default function App() {
                           {focusedPlanetData.yearLength}
                         </div>
                       </div>
-                      <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2.5">
+                      <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
                         <div className="text-[10px] text-slate-400">
                           {t.temperature}
                         </div>
@@ -714,7 +841,7 @@ export default function App() {
                           {focusedPlanetData.temperature}
                         </div>
                       </div>
-                      <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2.5">
+                      <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
                         <div className="text-[10px] text-slate-400">
                           {t.gravity} · {t.moons}
                         </div>
@@ -723,30 +850,35 @@ export default function App() {
                         </div>
                       </div>
                     </div>
+
+                    <button
+                      onClick={() => setInspectorTab('core')}
+                      className="w-full py-2 rounded-xl bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/50 text-amber-300 font-display font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition"
+                    >
+                      <IconCore />
+                      <span>
+                        {focusedPlanetData.id === 'blackhole'
+                          ? isHindi
+                            ? 'इवेंट होराइजन और सिंगुलैरिटी परतें देखें →'
+                            : 'Inspect Event Horizon & Singularity Layers →'
+                          : isHindi
+                            ? '3D ग्रह को काटकर आंतरिक कोर (Mantle & Core) देखें →'
+                            : 'Slice Open 3D Planet Core & Mantle Layers →'}
+                      </span>
+                    </button>
                   </>
                 )}
 
                 {inspectorTab === 'core' && (
-                  <div className="space-y-2.5">
-                    <div className="text-[11px] font-mono text-amber-300">
-                      {isHindi
-                        ? `${focusedPlanetData.hindiName} की आंतरिक संरचना (Internal Core Cutaway):`
-                        : `Internal Structure of ${focusedPlanetData.name}:`}
-                    </div>
-
-                    {/* Visual Concentric Core Diagram */}
-                    <div className="flex items-center justify-center py-2 bg-[#0b1326] border border-slate-800 rounded-xl">
-                      <div
-                        className="w-28 h-28 rounded-full flex items-center justify-center border-2 shadow-inner"
-                        style={{
-                          borderColor: focusedPlanetLayers[0]?.color || '#38bdf8',
-                          background: 'radial-gradient(circle, #fef08a 0%, #f59e0b 35%, #ea580c 68%, #1e293b 100%)',
-                        }}
-                      >
-                        <div className="w-16 h-16 rounded-full border border-white/50 flex items-center justify-center bg-amber-500/30">
-                          <div className="w-7 h-7 rounded-full bg-yellow-200 shadow-lg" />
-                        </div>
-                      </div>
+                  <div className="space-y-2">
+                    <div className="bg-amber-500/10 border border-amber-400/40 rounded-xl p-2.5 text-[11px] font-mono text-amber-200">
+                      {focusedPlanetData.id === 'blackhole'
+                        ? isHindi
+                          ? 'सैजिटेरियस A* की सापेक्षतावादी (Relativistic) संरचना:'
+                          : 'Relativistic Spacetime Structure of Sagittarius A*:'
+                        : isHindi
+                          ? `3D चौथाई कटअवे (3/4 Cutaway) सक्रिय: 3D ${focusedPlanetData.hindiName} के कटे हुए हिस्से में अंदर की परतें देखें।`
+                          : `3D 90° WEDGE CUTAWAY ACTIVE: Rotate the 3D ${focusedPlanetData.name} model to inspect its solid internal core layers.`}
                     </div>
 
                     {focusedPlanetLayers.map((layer, idx) => (
@@ -770,7 +902,7 @@ export default function App() {
                           {isHindi ? layer.compositionHi : layer.compositionEn}
                         </div>
                         <div className="text-[10px] font-mono text-sky-400">
-                          Depth / Span: {layer.depthKm}
+                          Span / Depth: {layer.depthKm}
                         </div>
                       </div>
                     ))}
@@ -779,86 +911,71 @@ export default function App() {
 
                 {inspectorTab === 'probes' && (
                   <div className="space-y-2.5">
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {BUILDABLE_STRUCTURES.map((st) => (
-                        <button
-                          key={st.id}
-                          onClick={() =>
-                            canvasRef.current?.buildStructureNearPlanet(st.id)
-                          }
-                          className="p-2 rounded-xl bg-[#0e1933] hover:bg-[#16274c] border border-slate-700 hover:border-amber-400 text-left transition cursor-pointer"
-                        >
-                          <div className="font-bold text-white text-[11px]">
-                            + {st.hindiName}
-                          </div>
-                          <div className="text-[10px] font-mono text-amber-300 mt-0.5">
-                            💎{st.costCrystals} ⚙️{st.costTitanium}
-                          </div>
-                        </button>
-                      ))}
+                    <div className="bg-[#0c162e] border border-slate-800 rounded-xl p-3 space-y-1.5">
+                      <div className="text-[10px] font-mono text-sky-400 uppercase">
+                        {isHindi ? 'वायुमंडलीय संघटन (Atmosphere)' : 'Atmospheric Composition'}
+                      </div>
+                      <div className="text-white font-semibold">
+                        {focusedPlanetData.atmosphere}
+                      </div>
                     </div>
 
-                    <div className="text-[11px] font-mono text-emerald-400 pt-1">
-                      ISRO &amp; NASA SPACE PROBES:
-                    </div>
-                    {SPACE_PROBES.map((prb) => (
-                      <div
-                        key={prb.id}
-                        className="p-2.5 rounded-xl bg-[#0b1326] border border-slate-800"
-                      >
-                        <div className="font-bold text-white">
-                          {prb.name} ({prb.agency}) —{' '}
-                          <span className="text-amber-300">{prb.hindiName}</span>
-                        </div>
-                        <div className="text-[11px] text-slate-300 mt-1">
-                          {prb.summaryHi}
-                        </div>
+                    <div className="bg-[#0c162e] border border-slate-800 rounded-xl p-3 space-y-1.5">
+                      <div className="text-[10px] font-mono text-amber-400 uppercase">
+                        {isHindi ? 'वैज्ञानिक रहस्य (Scientific Fact)' : 'Key Scientific Fact'}
                       </div>
-                    ))}
+                      <div className="text-slate-200 leading-relaxed">
+                        {focusedPlanetData.funFact}
+                      </div>
+                    </div>
+
+                    <div className="bg-[#0c162e] border border-slate-800 rounded-xl p-3 space-y-1.5">
+                      <div className="text-[10px] font-mono text-emerald-400 uppercase">
+                        {isHindi ? 'घूर्णन काल (Sidereal Day)' : 'Rotation Period (Day Length)'}
+                      </div>
+                      <div className="text-white font-mono">
+                        {focusedPlanetData.dayLength}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Dual-Thumb Touch Controller (Only when in active free flight, hidden when inspecting a planet) */}
-          {showTouchPad && gameState === 'playing' && !focusPlanetId && (
-            <MobileTouchController
-              touchInputRef={touchInputRef}
-              onScanPlanet={() => {
-                setFocusPlanetId(telemetry.nearestPlanet.id);
-                setInspectorTab('overview');
-              }}
-              onQuickBuildTurret={() =>
-                canvasRef.current?.buildStructureNearPlanet('turret')
-              }
-              onFireMissile={() => canvasRef.current?.fireHomingMissile()}
-            />
-          )}
+          {/* Optional Clean Spacecraft Flight Stick (Only if user explicitly enabled Touch Flight Stick in Settings & is in Spacecraft mode) */}
+          {showTouchPad &&
+            gameState === 'playing' &&
+            !focusPlanetId &&
+            cameraMode !== 'overview' && (
+              <MobileTouchController
+                touchInputRef={touchInputRef}
+                onScanPlanet={() => {
+                  setFocusPlanetId(telemetry.nearestPlanet.id);
+                  setInspectorTab('overview');
+                }}
+              />
+            )}
 
           {/* =================================================================
-              BOTTOM "SOLAR SYSTEM SCOPE" PLANET & BLACK HOLE RIBBON
+              BOTTOM "SOLAR SYSTEM SCOPE" CELESTIAL SELECTOR RIBBON
              ================================================================= */}
-          <div className="pointer-events-auto mx-auto w-full max-w-5xl">
-            <div className="flex items-center gap-1.5 overflow-x-auto bg-[#070c1a]/92 border border-slate-800 rounded-2xl px-3 py-2 shadow-2xl">
+          <div className="pointer-events-auto mx-auto w-full max-w-5xl mt-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto bg-[#060b18]/92 border border-slate-800 rounded-2xl px-3 py-1.5 shadow-2xl">
               {SOLAR_SYSTEM_DATA.map((planet) => {
                 const isSelected = focusPlanetId === planet.id;
-                const isNearest =
-                  !focusPlanetId && telemetry.nearestPlanet.id === planet.id;
                 return (
                   <button
                     key={planet.id}
-                    onClick={() => handleSelectPlanetInScope(planet)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
+                    onClick={() => handleSelectPlanetInScope(planet.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
                       isSelected
                         ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold shadow-md'
-                        : isNearest
-                          ? 'bg-[#132247] text-white border-sky-400/70 font-semibold'
-                          : 'bg-[#0b1428] text-slate-300 border-slate-800 hover:border-slate-600 hover:text-white'
+                        : 'bg-[#0b1428] text-slate-300 border-slate-800 hover:border-slate-600 hover:text-white'
                     }`}
                   >
                     <span
-                      className="w-3 h-3 rounded-full shrink-0 shadow-xs"
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: planet.color }}
                     />
                     <span>{getLocalizedPlanetName(planet)}</span>
@@ -868,18 +985,15 @@ export default function App() {
 
               {/* 3D Supermassive Black Hole Quick-Select Button */}
               <button
-                onClick={() => {
-                  canvasRef.current?.warpToBlackHole();
-                  setFocusPlanetId('blackhole');
-                }}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
+                onClick={() => handleSelectPlanetInScope('blackhole')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
                   focusPlanetId === 'blackhole'
                     ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold'
                     : 'bg-[#170f2e] text-amber-300 border-purple-500/50 hover:border-amber-400'
                 }`}
               >
-                <span className="w-3 h-3 rounded-full bg-black border border-amber-400 shrink-0" />
-                <span>🕳️ {isHindi ? 'ब्लैक होल (Sgr A*)' : 'Black Hole (Sgr A*)'}</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-black border border-amber-400 shrink-0" />
+                <span>{isHindi ? 'ब्लैक होल (Sgr A*)' : 'Black Hole (Sgr A*)'}</span>
               </button>
             </div>
           </div>
@@ -900,8 +1014,8 @@ export default function App() {
                 </div>
                 <h2 className="font-display text-xl sm:text-2xl font-bold text-white">
                   {isHindi
-                    ? '🌌 संपूर्ण ब्रह्मांड, इसरो-नासा और आधुनिक खगोल विज्ञान शोध'
-                    : '🌌 Universe & Space Research Atlas (ISRO · NASA · JWST)'}
+                    ? 'संपूर्ण ब्रह्मांड, इसरो-नासा और आधुनिक खगोल विज्ञान शोध'
+                    : 'Universe & Space Research Atlas (ISRO · NASA · JWST)'}
                 </h2>
               </div>
 
@@ -986,8 +1100,8 @@ export default function App() {
                   <div className="space-y-2">
                     <div className="text-xs font-mono text-emerald-400 font-bold">
                       {isHindi
-                        ? '🔬 प्रमुख वैज्ञानिक खोजें (Key Scientific Findings):'
-                        : '🔬 Key Scientific Findings:'}
+                        ? 'प्रमुख वैज्ञानिक खोजें (Key Scientific Findings):'
+                        : 'Key Scientific Findings:'}
                     </div>
                     <ul className="space-y-2 text-xs text-slate-200 leading-relaxed">
                       {(isHindi
@@ -998,7 +1112,7 @@ export default function App() {
                           key={idx}
                           className="flex items-start gap-2 bg-[#0a1326] border border-slate-800/80 rounded-xl p-3"
                         >
-                          <span className="text-amber-400 font-bold">★</span>
+                          <span className="text-amber-400 font-bold">•</span>
                           <span>{d}</span>
                         </li>
                       ))}
@@ -1011,15 +1125,13 @@ export default function App() {
                       <button
                         onClick={() => {
                           setShowResearchHub(false);
-                          canvasRef.current?.warpToBlackHole();
-                          setFocusPlanetId('blackhole');
+                          handleSelectPlanetInScope('blackhole');
                         }}
                         className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs cursor-pointer"
                       >
-                        🕳️{' '}
                         {isHindi
-                          ? '3D ब्लैक होल (Sagittarius A*) पर उड़ान भरें'
-                          : 'Fly to 3D Black Hole Now'}
+                          ? '3D ब्लैक होल (Sagittarius A*) पर ज़ूम करें →'
+                          : 'Inspect 3D Black Hole Now →'}
                       </button>
                     )}
 
@@ -1027,17 +1139,15 @@ export default function App() {
                       <button
                         onClick={() => {
                           setShowResearchHub(false);
-                          setFocusPlanetId(selectedArticle.targetPlanetId!);
-                          canvasRef.current?.warpToPlanet(
+                          handleSelectPlanetInScope(
                             selectedArticle.targetPlanetId!
                           );
                         }}
                         className="px-5 py-2.5 rounded-xl bg-sky-400 hover:bg-sky-300 text-slate-950 font-display font-bold text-xs cursor-pointer"
                       >
-                        🔭{' '}
                         {isHindi
-                          ? '3D अंतरिक्ष में इसे करीब से देखें'
-                          : 'Inspect in 3D Space'}
+                          ? '3D अंतरिक्ष में इसे करीब से देखें →'
+                          : 'Inspect in 3D Space →'}
                       </button>
                     )}
                   </div>
@@ -1049,17 +1159,19 @@ export default function App() {
       )}
 
       {/* =====================================================================
-          4. CLEAN COMMAND HANGAR MODAL (BASE BUILDING, UPGRADES, MISSIONS & SETTINGS)
+          4. COSMIC KNOWLEDGE QUIZ, ISRO/NASA PROBES & OBSERVATORY SETTINGS MODAL
          ===================================================================== */}
-      {showCommandModal && (
+      {showKnowledgeModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/80 pointer-events-auto">
-          <div className="w-full max-w-3xl bg-[#080f20] border border-slate-700 rounded-2xl p-5 sm:p-6 shadow-2xl text-white max-h-[86vh] flex flex-col">
+          <div className="w-full max-w-3xl bg-[#080f20] border border-slate-700 rounded-2xl p-5 sm:p-6 shadow-2xl text-white max-h-[88vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h2 className="font-display text-xl font-bold text-white">
-                🛠️ {isHindi ? 'स्पेस बेस, यान अपग्रेड और सेटिंग्स' : 'Space Command & Hangar'}
+                {isHindi
+                  ? 'अंतरिक्ष ज्ञान प्रश्नोत्तरी (Cosmic Quiz), यान और सेटिंग्स'
+                  : 'Cosmic Knowledge Quiz, Space Probes & Settings'}
               </h2>
               <button
-                onClick={() => setShowCommandModal(false)}
+                onClick={() => setShowKnowledgeModal(false)}
                 className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs cursor-pointer"
               >
                 ✕ {t.close}
@@ -1070,20 +1182,29 @@ export default function App() {
             <div className="flex flex-wrap gap-1.5 my-3 bg-[#0c162d] p-1.5 rounded-xl">
               {(
                 [
-                  { id: 'build', label: `🏗️ ${t.tabBuild}` },
-                  { id: 'hangar', label: `⚡ ${t.tabHangar}` },
                   {
-                    id: 'missions',
-                    label: `🎯 ${t.tabMissions} (${telemetry.completedMissions.length}/5)`,
+                    id: 'quiz',
+                    label: isHindi
+                      ? `ब्रह्मांड ज्ञान क्विज़ (Score: ${quizScore})`
+                      : `Astronomy Quiz (Score: ${quizScore})`,
                   },
-                  { id: 'settings', label: `⚙️ ${t.tabSettings}` },
+                  {
+                    id: 'probes',
+                    label: isHindi
+                      ? 'ISRO व NASA अंतरिक्ष यान'
+                      : 'ISRO & NASA Spacecraft',
+                  },
+                  {
+                    id: 'settings',
+                    label: isHindi ? 'ग्राफ़िक्स व डिस्प्ले सेटिंग्स' : 'Observatory Settings',
+                  },
                 ] as const
               ).map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setCommandTab(tab.id)}
+                  onClick={() => setKnowledgeTab(tab.id)}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-display font-bold transition cursor-pointer ${
-                    commandTab === tab.id
+                    knowledgeTab === tab.id
                       ? 'bg-amber-400 text-slate-950'
                       : 'text-slate-300 hover:text-white'
                   }`}
@@ -1093,141 +1214,129 @@ export default function App() {
               ))}
             </div>
 
-            <div className="overflow-y-auto space-y-3 pr-1">
-              {commandTab === 'build' && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {BUILDABLE_STRUCTURES.map((st) => {
-                    const canAfford =
-                      telemetry.crystals >= st.costCrystals &&
-                      telemetry.titanium >= st.costTitanium;
-                    return (
-                      <div
-                        key={st.id}
-                        className="bg-[#0c162e] border border-slate-800 rounded-xl p-4 flex flex-col justify-between gap-3"
-                      >
-                        <div>
-                          <div className="font-display font-bold text-white text-sm">
-                            {st.name}
-                          </div>
-                          <div className="text-xs text-amber-300">
-                            {st.hindiName}
-                          </div>
-                          <p className="text-xs text-slate-300 mt-1.5">
-                            {st.summary} — {st.benefit}
-                          </p>
-                        </div>
+            <div className="overflow-y-auto space-y-4 pr-1">
+              {knowledgeTab === 'quiz' && (
+                <div className="bg-[#0c162e] border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
+                  <div className="flex items-center justify-between text-xs font-mono text-sky-400">
+                    <span>
+                      QUESTION {quizIndex + 1} OF {COSMIC_KNOWLEDGE_QUIZ.length}
+                    </span>
+                    <span className="text-amber-300 font-bold">
+                      KNOWLEDGE SCORE: {quizScore} / {COSMIC_KNOWLEDGE_QUIZ.length}
+                    </span>
+                  </div>
 
-                        <div>
-                          <div className="text-xs font-mono text-slate-400 mb-2">
-                            💎 {st.costCrystals} · ⚙️ {st.costTitanium}
-                          </div>
-                          <button
-                            onClick={() =>
-                              canvasRef.current?.buildStructureNearPlanet(st.id)
-                            }
-                            className={`w-full py-2 rounded-lg text-xs font-display font-bold cursor-pointer ${
-                              canAfford
-                                ? 'bg-amber-400 text-slate-950 hover:bg-amber-300'
-                                : 'bg-slate-800 text-slate-500'
-                            }`}
-                          >
-                            {isHindi
-                              ? `${getLocalizedPlanetName(telemetry.nearestPlanet)} पर बनाएँ`
-                              : `Build at ${telemetry.nearestPlanet.name}`}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                  <h3 className="font-display text-base sm:text-lg font-bold text-white leading-snug">
+                    {isHindi ? currentQuiz.questionHi : currentQuiz.questionEn}
+                  </h3>
 
-              {commandTab === 'hangar' && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {STARSHIP_UPGRADES.map((up) => {
-                    const lvl = telemetry.upgrades[up.id];
-                    const isMax = lvl >= up.maxLevel;
-                    const costC = Math.round(
-                      up.baseCostCrystals * Math.pow(1.45, lvl - 1)
-                    );
-                    const costT = Math.round(
-                      up.baseCostTitanium * Math.pow(1.45, lvl - 1)
-                    );
-                    const canAfford =
-                      !isMax &&
-                      telemetry.crystals >= costC &&
-                      telemetry.titanium >= costT;
-                    return (
-                      <div
-                        key={up.id}
-                        className="bg-[#0c162e] border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between gap-2"
-                      >
-                        <div>
-                          <div className="flex justify-between items-center">
-                            <span className="font-bold text-sm text-white">
-                              {up.hindiName}
-                            </span>
-                            <span className="font-mono text-xs text-amber-400">
-                              Mk.{lvl}/{up.maxLevel}
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-400 mt-1">
-                            {up.benefitPerLevel}
-                          </div>
-                        </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {(isHindi
+                      ? currentQuiz.optionsHi
+                      : currentQuiz.optionsEn
+                    ).map((opt, idx) => {
+                      const isPicked = selectedOption === idx;
+                      const isCorrect = idx === currentQuiz.correctIndex;
+                      let btnStyle =
+                        'bg-[#081022] border-slate-700 text-slate-200 hover:border-sky-400';
+                      if (selectedOption !== null) {
+                        if (isCorrect) {
+                          btnStyle =
+                            'bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold';
+                        } else if (isPicked) {
+                          btnStyle =
+                            'bg-red-500/20 border-red-400 text-red-200';
+                        }
+                      }
 
+                      return (
                         <button
-                          onClick={() =>
-                            canvasRef.current?.upgradeShipSystem(up.id)
-                          }
-                          disabled={isMax}
-                          className={`w-full py-2 rounded-lg text-xs font-display font-bold cursor-pointer ${
-                            isMax
-                              ? 'bg-emerald-500/20 text-emerald-300'
-                              : canAfford
-                                ? 'bg-sky-400 text-slate-950 hover:bg-sky-300'
-                                : 'bg-slate-800 text-slate-500'
-                          }`}
+                          key={idx}
+                          onClick={() => {
+                            if (selectedOption !== null) return;
+                            setSelectedOption(idx);
+                            if (idx === currentQuiz.correctIndex) {
+                              soundEngine.playCollect();
+                              setQuizScore((s) => s + 1);
+                            }
+                          }}
+                          className={`p-3 rounded-xl border text-left text-xs transition cursor-pointer ${btnStyle}`}
                         >
-                          {isMax ? 'MAX LEVEL' : `Upgrade (💎${costC} ⚙️${costT})`}
+                          {opt}
                         </button>
+                      );
+                    })}
+                  </div>
+
+                  {selectedOption !== null && (
+                    <div className="bg-[#081124] border border-amber-400/50 rounded-xl p-3.5 space-y-2 text-xs">
+                      <div className="font-bold text-amber-300">
+                        {selectedOption === currentQuiz.correctIndex
+                          ? isHindi
+                            ? '✓ बिल्कुल सही उत्तर!'
+                            : '✓ Correct Answer!'
+                          : isHindi
+                            ? '✗ वैज्ञानिक तथ्य जानें:'
+                            : '✗ Scientific Explanation:'}
                       </div>
-                    );
-                  })}
+                      <p className="text-slate-200 leading-relaxed">
+                        {isHindi
+                          ? currentQuiz.explanationHi
+                          : currentQuiz.explanationEn}
+                      </p>
+                      <button
+                        onClick={() => {
+                          setSelectedOption(null);
+                          setQuizIndex(
+                            (i) => (i + 1) % COSMIC_KNOWLEDGE_QUIZ.length
+                          );
+                        }}
+                        className="mt-1 px-4 py-2 rounded-lg bg-amber-400 text-slate-950 font-display font-bold text-xs cursor-pointer"
+                      >
+                        {isHindi ? 'अगला प्रश्न →' : 'Next Question →'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {commandTab === 'missions' && (
+              {knowledgeTab === 'probes' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {SPACE_MISSIONS.map((m) => {
-                    const done = telemetry.completedMissions.includes(m.id);
-                    return (
-                      <div
-                        key={m.id}
-                        className={`p-3.5 rounded-xl border ${
-                          done
-                            ? 'bg-emerald-950/30 border-emerald-500/50'
-                            : 'bg-[#0c162e] border-slate-800'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-sm text-white">
-                            {m.titleHi} ({m.titleEn})
-                          </span>
-                          <span className="text-xs font-mono text-amber-300">
-                            {done ? '✓ DONE' : `+${m.rewardCrystals}💎`}
-                          </span>
+                  {SPACE_PROBES.map((prb) => (
+                    <div
+                      key={prb.id}
+                      className="p-4 rounded-xl bg-[#0c162e] border border-slate-800 flex flex-col justify-between gap-3"
+                    >
+                      <div>
+                        <div className="text-[10px] font-mono text-amber-400">
+                          {prb.agency}
                         </div>
-                        <p className="text-xs text-slate-300 mt-1">
-                          {m.targetText}
+                        <div className="font-display font-bold text-sm text-white mt-0.5">
+                          {prb.name} —{' '}
+                          <span className="text-sky-300">{prb.hindiName}</span>
+                        </div>
+                        <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
+                          {isHindi ? prb.summaryHi : prb.summaryEn}
                         </p>
                       </div>
-                    );
-                  })}
+
+                      <button
+                        onClick={() => {
+                          setShowKnowledgeModal(false);
+                          handleSelectPlanetInScope(prb.hostPlanetId);
+                        }}
+                        className="w-full py-2 rounded-lg bg-sky-400/20 hover:bg-sky-400/30 border border-sky-400/50 text-sky-200 font-display font-bold text-xs cursor-pointer"
+                      >
+                        {isHindi
+                          ? '3D कक्षा में देखें →'
+                          : 'Locate in 3D Orbit →'}
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
 
-              {commandTab === 'settings' && (
+              {knowledgeTab === 'settings' && (
                 <div className="space-y-4 bg-[#0c162e] border border-slate-800 rounded-xl p-4 text-xs">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-slate-300 font-bold">
@@ -1254,34 +1363,29 @@ export default function App() {
 
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-slate-300 font-bold">
-                      {t.orbitSpeed}:
+                      {isHindi
+                        ? '3D ग्रहों के नाम (Floating 3D Labels):'
+                        : '3D Floating Planet Names:'}
                     </span>
-                    <div className="flex gap-1.5">
-                      {[0.25, 1, 2.5].map((spd) => (
-                        <button
-                          key={spd}
-                          onClick={() => setTimeScale(spd)}
-                          className={`px-3 py-1.5 rounded-lg font-mono cursor-pointer ${
-                            timeScale === spd
-                              ? 'bg-sky-400 text-slate-950 font-bold'
-                              : 'bg-slate-800 text-slate-300'
-                          }`}
-                        >
-                          {spd}×
-                        </button>
-                      ))}
-                    </div>
+                    <button
+                      onClick={() => setShow3DLabels((prev) => !prev)}
+                      className="px-4 py-1.5 rounded-lg bg-slate-800 text-amber-300 font-mono cursor-pointer"
+                    >
+                      {show3DLabels ? 'ENABLED' : 'HIDDEN'}
+                    </button>
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-slate-300 font-bold">
-                      {t.touchPad}:
+                      {isHindi
+                        ? 'मोबाइल स्पेसक्राफ्ट जॉयस्टिक:'
+                        : 'On-Screen Spacecraft Stick:'}
                     </span>
                     <button
                       onClick={() => setShowTouchPad((prev) => !prev)}
                       className="px-4 py-1.5 rounded-lg bg-slate-800 text-sky-300 font-mono cursor-pointer"
                     >
-                      {showTouchPad ? 'ON' : 'OFF'}
+                      {showTouchPad ? 'ON' : 'OFF (360° Touch Orbit)'}
                     </button>
                   </div>
                 </div>
@@ -1291,74 +1395,7 @@ export default function App() {
         </div>
       )}
 
-      {/* =====================================================================
-          5. PAUSE / VICTORY / GAME OVER MODAL
-         ===================================================================== */}
-      {(gameState === 'paused' ||
-        gameState === 'victory' ||
-        gameState === 'gameover') && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/80 pointer-events-auto">
-          <div className="w-full max-w-md bg-[#080f20] border border-slate-700 rounded-2xl p-6 text-center shadow-2xl">
-            <h2 className="font-display text-3xl font-bold text-white mb-2">
-              {gameState === 'paused'
-                ? t.pause
-                : gameState === 'victory'
-                  ? 'Solar System Secured!'
-                  : 'Vajra-IX Destroyed'}
-            </h2>
-
-            <div className="bg-[#0c162e] border border-slate-800 rounded-xl p-3.5 my-5 grid grid-cols-2 gap-2.5 text-xs font-mono tabular-nums text-left">
-              <div>
-                <span className="text-slate-400">{t.score}:</span>{' '}
-                <strong className="text-white">{telemetry.score}</strong>
-              </div>
-              <div>
-                <span className="text-slate-400">{t.scanned}:</span>{' '}
-                <strong className="text-sky-400">
-                  {telemetry.scannedPlanets.length}/10
-                </strong>
-              </div>
-              <div>
-                <span className="text-slate-400">{t.crystals}:</span>{' '}
-                <strong className="text-amber-400">{telemetry.crystals}</strong>
-              </div>
-              <div>
-                <span className="text-slate-400">{t.tabMissions}:</span>{' '}
-                <strong className="text-emerald-400">
-                  {telemetry.completedMissions.length}/5
-                </strong>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              {gameState === 'paused' || gameState === 'victory' ? (
-                <button
-                  onClick={() => setGameState('playing')}
-                  className="w-full sm:w-auto px-6 py-2.5 text-xs font-display font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg cursor-pointer"
-                >
-                  {t.resume}
-                </button>
-              ) : null}
-
-              <button
-                onClick={handleRestartGame}
-                className="w-full sm:w-auto px-5 py-2.5 text-xs font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-lg cursor-pointer"
-              >
-                {t.restart}
-              </button>
-
-              <button
-                onClick={() => setGameState('title')}
-                className="w-full sm:w-auto px-4 py-2.5 text-xs font-medium text-slate-300 hover:text-white cursor-pointer"
-              >
-                {t.titleScreen}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 6. Automated APK Download & Updates Modal */}
+      {/* Automated Single-APK Download & Updates Modal */}
       <UpdateAndApkModal
         isOpen={showUpdateModal}
         onClose={() => setShowUpdateModal(false)}

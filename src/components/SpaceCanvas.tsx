@@ -15,6 +15,7 @@ import {
   createCloudLayerTexture,
   createRingTexture,
   createAccretionDiskTexture,
+  createAtmosphereFresnelMaterial,
 } from '../three/proceduralTextures';
 import {
   createPlayerStarship,
@@ -46,6 +47,17 @@ export interface ShipUpgradeLevels {
   tractor: number;
 }
 
+export interface ProjectedCelestialLabel {
+  id: string;
+  name: string;
+  hindiName: string;
+  color: string;
+  x: number; // percentage 0..100
+  y: number; // percentage 0..100
+  visible: boolean;
+  distKm: string;
+}
+
 export interface HudTelemetry {
   hull: number;
   maxHull: number;
@@ -73,6 +85,7 @@ export interface HudTelemetry {
   upgrades: ShipUpgradeLevels;
   completedMissions: string[];
   radarBlips: RadarBlip[];
+  projectedLabels?: ProjectedCelestialLabel[];
 }
 
 export interface SpaceCanvasHandle {
@@ -94,6 +107,7 @@ interface SpaceCanvasProps {
   graphicsQuality: GraphicsQualityMode;
   timeScale: number;
   focusPlanetId?: string | null;
+  showCoreCutaway?: boolean;
   touchInputRef: React.MutableRefObject<TouchInputState>;
   onTelemetryUpdate: (telemetry: HudTelemetry) => void;
   onGameEnd: (result: 'victory' | 'gameover') => void;
@@ -123,6 +137,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       graphicsQuality,
       timeScale,
       focusPlanetId = null,
+      showCoreCutaway = false,
       touchInputRef,
       onTelemetryUpdate,
       onGameEnd,
@@ -137,6 +152,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
     const graphicsQualityRef = useRef<GraphicsQualityMode>(graphicsQuality);
     const timeScaleRef = useRef<number>(timeScale);
     const focusPlanetIdRef = useRef<string | null>(focusPlanetId);
+    const showCoreCutawayRef = useRef<boolean>(showCoreCutaway);
     const onTelemetryRef = useRef(onTelemetryUpdate);
     const onGameEndRef = useRef(onGameEnd);
     const onSelectPlanetRef = useRef(onSelectPlanetCodex);
@@ -156,6 +172,9 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
     useEffect(() => {
       focusPlanetIdRef.current = focusPlanetId ?? null;
     }, [focusPlanetId]);
+    useEffect(() => {
+      showCoreCutawayRef.current = Boolean(showCoreCutaway);
+    }, [showCoreCutaway]);
     useEffect(() => {
       onTelemetryRef.current = onTelemetryUpdate;
     }, [onTelemetryUpdate]);
@@ -333,6 +352,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         data: PlanetData;
         rootGroup: THREE.Group;
         mesh: THREE.Mesh;
+        coreGroup: THREE.Group;
         angle: number;
         moons: { mesh: THREE.Mesh; angle: number; dist: number; speed: number }[];
         scannerRing: THREE.Mesh;
@@ -343,22 +363,34 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       let sunOuterCoronaMesh: THREE.Mesh | null = null;
       let earthCloudMesh: THREE.Mesh | null = null;
 
+      const atmoColorMap: Record<string, number> = {
+        mercury: 0x94a3b8,
+        venus: 0xfbbf24,
+        earth: 0x38bdf8,
+        mars: 0xf97316,
+        jupiter: 0xfde68a,
+        saturn: 0xfef08a,
+        uranus: 0x22d3ee,
+        neptune: 0x3b82f6,
+        pluto: 0xd6d3d1,
+      };
+
       SOLAR_SYSTEM_DATA.forEach((pData, idx) => {
         const rootGroup = new THREE.Group();
         scene.add(rootGroup);
 
         if (pData.orbitRadius > 0) {
           const orbitGeo = new THREE.RingGeometry(
-            pData.orbitRadius - 0.16,
-            pData.orbitRadius + 0.16,
-            128
+            pData.orbitRadius - 0.14,
+            pData.orbitRadius + 0.14,
+            160
           );
           orbitGeo.rotateX(-Math.PI / 2);
           const orbitMat = new THREE.MeshBasicMaterial({
             color: pData.color,
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: 0.22,
+            opacity: 0.2,
             depthWrite: false,
             polygonOffset: true,
             polygonOffsetFactor: -1,
@@ -369,30 +401,18 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         }
 
         const tex = createPlanetTexture(pData.id, maxAnisotropy);
-        const geo = new THREE.SphereGeometry(pData.radius, 48, 36);
+        const geo = new THREE.SphereGeometry(pData.radius, 64, 48);
 
         let mat: THREE.Material;
         if (pData.id === 'sun') {
           mat = new THREE.MeshBasicMaterial({ map: tex });
-          const coronaGeo = new THREE.SphereGeometry(pData.radius * 1.22, 32, 24);
-          const coronaMat = new THREE.MeshBasicMaterial({
-            color: 0xf59e0b,
-            transparent: true,
-            opacity: 0.22,
-            side: THREE.BackSide,
-            depthWrite: false,
-          });
+          const coronaGeo = new THREE.SphereGeometry(pData.radius * 1.18, 48, 36);
+          const coronaMat = createAtmosphereFresnelMaterial(0xf59e0b, 1.45, 2.2);
           sunCoronaMesh = new THREE.Mesh(coronaGeo, coronaMat);
           rootGroup.add(sunCoronaMesh);
 
-          const outerCoronaGeo = new THREE.SphereGeometry(pData.radius * 1.48, 32, 24);
-          const outerCoronaMat = new THREE.MeshBasicMaterial({
-            color: 0xea580c,
-            transparent: true,
-            opacity: 0.1,
-            side: THREE.BackSide,
-            depthWrite: false,
-          });
+          const outerCoronaGeo = new THREE.SphereGeometry(pData.radius * 1.42, 48, 36);
+          const outerCoronaMat = createAtmosphereFresnelMaterial(0xea580c, 0.85, 3.0);
           sunOuterCoronaMesh = new THREE.Mesh(outerCoronaGeo, outerCoronaMat);
           rootGroup.add(sunOuterCoronaMesh);
         } else {
@@ -400,64 +420,39 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           mat = new THREE.MeshStandardMaterial({
             map: tex,
             bumpMap: bumpTex,
-            bumpScale: pData.type.includes('Gas') ? 0.08 : 0.35,
-            roughness: pData.type.includes('Gas') ? 0.58 : 0.72,
-            metalness: pData.id === 'mercury' ? 0.35 : 0.12,
+            bumpScale: pData.type.includes('Gas') ? 0.08 : 0.38,
+            roughness: pData.type.includes('Gas') ? 0.55 : 0.68,
+            metalness: pData.id === 'mercury' ? 0.32 : 0.1,
+            transparent: true,
+            opacity: 1.0,
           });
 
-          // High Graphics Atmospheric Halos & Rotating Cloud Sphere
+          // Custom GLSL Fresnel Atmospheric Rim Halo on Every Planet
+          const atmoHex = atmoColorMap[pData.id] || 0x38bdf8;
+          const atmoGeo = new THREE.SphereGeometry(
+            pData.radius * (pData.id === 'earth' || pData.id === 'venus' ? 1.065 : 1.045),
+            48,
+            36
+          );
+          const atmoMat = createAtmosphereFresnelMaterial(
+            atmoHex,
+            pData.id === 'earth' ? 1.35 : 0.95,
+            3.1
+          );
+          rootGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
+
           if (pData.id === 'earth') {
-            const cloudGeo = new THREE.SphereGeometry(pData.radius * 1.025, 36, 28);
+            const cloudGeo = new THREE.SphereGeometry(pData.radius * 1.018, 48, 36);
             const cloudTex = createCloudLayerTexture(maxAnisotropy);
             const cloudMat = new THREE.MeshStandardMaterial({
               map: cloudTex,
               transparent: true,
-              opacity: 0.78,
+              opacity: 0.84,
               depthWrite: false,
               roughness: 0.9,
             });
             earthCloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
             rootGroup.add(earthCloudMesh);
-
-            const atmoGeo = new THREE.SphereGeometry(pData.radius * 1.08, 32, 24);
-            const atmoMat = new THREE.MeshBasicMaterial({
-              color: 0x38bdf8,
-              transparent: true,
-              opacity: 0.32,
-              side: THREE.BackSide,
-              depthWrite: false,
-            });
-            rootGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
-          } else if (pData.id === 'venus') {
-            const atmoGeo = new THREE.SphereGeometry(pData.radius * 1.07, 32, 24);
-            const atmoMat = new THREE.MeshBasicMaterial({
-              color: 0xfbbf24,
-              transparent: true,
-              opacity: 0.28,
-              side: THREE.BackSide,
-              depthWrite: false,
-            });
-            rootGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
-          } else if (pData.id === 'mars') {
-            const atmoGeo = new THREE.SphereGeometry(pData.radius * 1.05, 32, 24);
-            const atmoMat = new THREE.MeshBasicMaterial({
-              color: 0xf87171,
-              transparent: true,
-              opacity: 0.22,
-              side: THREE.BackSide,
-              depthWrite: false,
-            });
-            rootGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
-          } else if (pData.id === 'jupiter') {
-            const atmoGeo = new THREE.SphereGeometry(pData.radius * 1.04, 32, 24);
-            const atmoMat = new THREE.MeshBasicMaterial({
-              color: 0xa855f7,
-              transparent: true,
-              opacity: 0.16,
-              side: THREE.BackSide,
-              depthWrite: false,
-            });
-            rootGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
           }
         }
 
@@ -466,6 +461,87 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         mesh.castShadow = pData.id !== 'sun';
         mesh.receiveShadow = pData.id !== 'sun';
         rootGroup.add(mesh);
+
+        // True 3/4 Sliced Quarter-Wedge 3D Core Cutaway Group (Works on ALL worlds including the Sun!)
+        const coreGroup = new THREE.Group();
+        coreGroup.visible = false;
+
+        // 1. 270-degree (3/4) Outer Cutaway Shell so a clean 90-degree wedge is open
+        const cutawayShellGeo = new THREE.SphereGeometry(
+          pData.radius * 0.995,
+          48,
+          36,
+          0,
+          Math.PI * 1.5,
+          0,
+          Math.PI
+        );
+        const cutawayShellMat =
+          pData.id === 'sun'
+            ? new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
+            : new THREE.MeshStandardMaterial({
+                map: tex,
+                roughness: 0.65,
+                metalness: 0.15,
+                side: THREE.DoubleSide,
+              });
+        coreGroup.add(new THREE.Mesh(cutawayShellGeo, cutawayShellMat));
+
+        // 2. Solid Concentric Interior Layers (Mantle / Radiative Zone, Outer Core, Inner Core)
+        const mantleColor =
+          pData.id === 'sun'
+            ? 0xea580c
+            : pData.id === 'uranus' || pData.id === 'neptune'
+              ? 0x0284c7
+              : 0xc2410c;
+        const outerCoreColor =
+          pData.id === 'sun'
+            ? 0xf59e0b
+            : pData.id === 'uranus' || pData.id === 'neptune'
+              ? 0x38bdf8
+              : 0xf97316;
+        const innerCoreColor = 0xfef08a;
+
+        // Mantle / Convective Sphere (with slightly wider wedge cutaway)
+        const mantleGeo = new THREE.SphereGeometry(
+          pData.radius * 0.82,
+          40,
+          30,
+          0.12,
+          Math.PI * 1.65,
+          0,
+          Math.PI
+        );
+        const mantleMat = new THREE.MeshBasicMaterial({
+          color: mantleColor,
+          side: THREE.DoubleSide,
+        });
+        coreGroup.add(new THREE.Mesh(mantleGeo, mantleMat));
+
+        // Liquid Outer Core / Radiative Zone Sphere
+        const outerCoreGeo = new THREE.SphereGeometry(
+          pData.radius * 0.56,
+          36,
+          28,
+          0.25,
+          Math.PI * 1.8,
+          0,
+          Math.PI
+        );
+        const outerCoreMat = new THREE.MeshBasicMaterial({
+          color: outerCoreColor,
+          side: THREE.DoubleSide,
+        });
+        coreGroup.add(new THREE.Mesh(outerCoreGeo, outerCoreMat));
+
+        // Solid Glowing Inner Core (Full sphere in the center!)
+        const innerCoreGeo = new THREE.SphereGeometry(pData.radius * 0.31, 32, 24);
+        const innerCoreMat = new THREE.MeshBasicMaterial({
+          color: innerCoreColor,
+        });
+        coreGroup.add(new THREE.Mesh(innerCoreGeo, innerCoreMat));
+
+        rootGroup.add(coreGroup);
 
         if (pData.hasRings && pData.ringInnerRadius && pData.ringOuterRadius) {
           const rGeo = new THREE.RingGeometry(
@@ -549,6 +625,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           data: pData,
           rootGroup,
           mesh,
+          coreGroup,
           angle: startAngle,
           moons: moonsRuntime,
           scannerRing,
@@ -985,7 +1062,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         }
       };
 
-      // 13. Enemy Void Pirate Interceptors
+      // 13. Peaceful Observatory Mode (No hostile pirates interrupting learning)
       interface PirateEnemy {
         group: THREE.Group;
         telegraphRing: THREE.Mesh;
@@ -999,40 +1076,8 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         respawnTimer: number;
       }
       const pirates: PirateEnemy[] = [];
-      const maxPirates = 6;
-
-      const spawnPirateAtIndex = (p: PirateEnemy, idx: number) => {
-        const r = 75 + idx * 42;
-        const a = Math.random() * Math.PI * 2;
-        p.active = true;
-        p.hp = 35 + playerState.waveNumber * 8;
-        p.maxHp = p.hp;
-        p.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
-        p.group.position.copy(p.position);
-        p.group.visible = true;
-        p.windupTimer = 0;
-        p.cooldownTimer = 1.8 + Math.random() * 1.5;
-        (p.telegraphRing.material as THREE.MeshBasicMaterial).opacity = 0;
-      };
-
-      for (let i = 0; i < maxPirates; i++) {
-        const model = createPirateInterceptor();
-        scene.add(model.group);
-        const p: PirateEnemy = {
-          group: model.group,
-          telegraphRing: model.telegraphRing,
-          active: true,
-          hp: 40,
-          maxHp: 40,
-          position: new THREE.Vector3(),
-          velocity: new THREE.Vector3(),
-          windupTimer: 0,
-          cooldownTimer: 2,
-          respawnTimer: 0,
-        };
-        spawnPirateAtIndex(p, i);
-        pirates.push(p);
-      }
+      const spawnPirateAtIndex = (_p: PirateEnemy, _idx: number) => {};
+      void createPirateInterceptor;
 
       // 14. Input Handling
       const heldKeys = new Set<string>();
@@ -1060,28 +1105,115 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       window.addEventListener('keyup', onKeyUp);
       window.addEventListener('blur', onWindowBlur);
 
+      // Interactive 360-Degree Touch/Mouse Camera Orbit + Pinch/Scroll Zoom + Planet Tap Raycasting
       const raycaster = new THREE.Raycaster();
       const pointer = new THREE.Vector2();
-      const onPointerDown = (e: MouseEvent) => {
+      let isDraggingOrbit = false;
+      let activeOrbitPointerId: number | null = null;
+      let dragStartX = 0;
+      let dragStartY = 0;
+      let lastPointerX = 0;
+      let lastPointerY = 0;
+      let orbitAzimuth = 0.65;
+      let orbitElevation = 0.32;
+      let orbitZoomMultiplier = 1.0;
+      let pinchStartDist = 0;
+      let pinchStartZoom = 1.0;
+
+      const onPointerDown = (e: PointerEvent) => {
         if (gameStateRef.current !== 'playing') return;
-        const rect = renderer.domElement.getBoundingClientRect();
-        pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-        raycaster.setFromCamera(pointer, camera);
-        const planetMeshes = planetsRuntime.map((p) => p.mesh);
-        const hits = raycaster.intersectObjects(planetMeshes, false);
-        if (hits.length > 0) {
-          const hitMesh = hits[0].object;
-          const found = planetsRuntime.find((p) => p.mesh === hitMesh);
-          if (found) {
-            playerState.scannedPlanets.add(found.data.id);
-            markSaveDirty();
-            soundEngine.playCollect();
-            onSelectPlanetRef.current(found.data);
+        if (activeOrbitPointerId !== null) return;
+        activeOrbitPointerId = e.pointerId;
+        isDraggingOrbit = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        lastPointerX = e.clientX;
+        lastPointerY = e.clientY;
+      };
+
+      const onPointerMove = (e: PointerEvent) => {
+        if (!isDraggingOrbit || e.pointerId !== activeOrbitPointerId) return;
+        const dx = e.clientX - lastPointerX;
+        const dy = e.clientY - lastPointerY;
+        lastPointerX = e.clientX;
+        lastPointerY = e.clientY;
+        orbitAzimuth -= dx * 0.0075;
+        orbitElevation = Math.max(
+          -1.22,
+          Math.min(1.28, orbitElevation + dy * 0.0065)
+        );
+      };
+
+      const onPointerUp = (e: PointerEvent) => {
+        if (e.pointerId !== activeOrbitPointerId) return;
+        isDraggingOrbit = false;
+        activeOrbitPointerId = null;
+        const moveDist = Math.hypot(
+          e.clientX - dragStartX,
+          e.clientY - dragStartY
+        );
+        // If user tapped without dragging, raycast to select 3D planet!
+        if (moveDist < 9 && gameStateRef.current === 'playing') {
+          const rect = renderer.domElement.getBoundingClientRect();
+          pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera(pointer, camera);
+          const planetMeshes = planetsRuntime.map((p) => p.mesh);
+          const hits = raycaster.intersectObjects(planetMeshes, false);
+          if (hits.length > 0) {
+            const hitMesh = hits[0].object;
+            const found = planetsRuntime.find((p) => p.mesh === hitMesh);
+            if (found) {
+              playerState.scannedPlanets.add(found.data.id);
+              orbitZoomMultiplier = 1.0;
+              markSaveDirty();
+              soundEngine.playCollect();
+              onSelectPlanetRef.current(found.data);
+            }
           }
         }
       };
-      renderer.domElement.addEventListener('mousedown', onPointerDown);
+
+      const onWheel = (e: WheelEvent) => {
+        e.preventDefault();
+        orbitZoomMultiplier = Math.max(
+          0.42,
+          Math.min(3.6, orbitZoomMultiplier + e.deltaY * 0.0012)
+        );
+      };
+
+      const onTouchStart = (e: TouchEvent) => {
+        if (e.touches.length === 2) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          pinchStartDist = Math.hypot(dx, dy);
+          pinchStartZoom = orbitZoomMultiplier;
+        }
+      };
+
+      const onTouchMove = (e: TouchEvent) => {
+        if (e.touches.length === 2 && pinchStartDist > 10) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          const dist = Math.hypot(dx, dy);
+          const ratio = pinchStartDist / Math.max(20, dist);
+          orbitZoomMultiplier = Math.max(
+            0.42,
+            Math.min(3.6, pinchStartZoom * ratio)
+          );
+        }
+      };
+
+      renderer.domElement.addEventListener('pointerdown', onPointerDown);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
+      renderer.domElement.addEventListener('touchstart', onTouchStart, {
+        passive: true,
+      });
+      renderer.domElement.addEventListener('touchmove', onTouchMove, {
+        passive: true,
+      });
 
       const getNearestPlanet = (): {
         runtime: PlanetRuntime;
@@ -2150,41 +2282,60 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           const shakeX = (Math.random() - 0.5) * cameraShake * 1.6;
           const shakeY = (Math.random() - 0.5) * cameraShake * 1.6;
 
+          // Update True 3/4 Sliced 3D Planet Core Cutaway (Works on ALL worlds including the Sun!)
           const activeFocusId = focusPlanetIdRef.current;
+          const cutawayOn = showCoreCutawayRef.current;
+          for (let i = 0; i < planetsRuntime.length; i++) {
+            const pr = planetsRuntime[i];
+            const isTargetCutaway =
+              cutawayOn && activeFocusId === pr.data.id;
+            pr.coreGroup.visible = isTargetCutaway;
+            pr.mesh.visible = !isTargetCutaway;
+            pr.coreGroup.rotation.y += 0.35 * dt;
+          }
+
           const focusedPlanetRuntime = activeFocusId
             ? planetsRuntime.find((p) => p.data.id === activeFocusId)
             : null;
 
+          if (!isDraggingOrbit) {
+            orbitAzimuth += 0.14 * dt;
+          }
+
           if (activeFocusId === 'blackhole') {
-            const orbitT = clock.getElapsedTime() * 0.25;
-            const dist = 48;
+            const dist = 46 * orbitZoomMultiplier;
+            const horiz = Math.cos(orbitElevation) * dist;
             _vec3CamTarget.set(
-              blackHoleGroup.position.x + Math.cos(orbitT) * dist,
-              11,
-              blackHoleGroup.position.z + Math.sin(orbitT) * dist
+              blackHoleGroup.position.x + Math.cos(orbitAzimuth) * horiz,
+              blackHoleGroup.position.y + Math.sin(orbitElevation) * dist,
+              blackHoleGroup.position.z + Math.sin(orbitAzimuth) * horiz
             );
-            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-5.5 * dt));
+            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-7.0 * dt));
             camera.lookAt(blackHoleGroup.position);
             playerShip.group.visible = true;
           } else if (focusedPlanetRuntime) {
-            // Solar System Scope Orbital Inspection Camera around the selected planet
-            const orbitT = clock.getElapsedTime() * 0.22;
-            const inspectDist = Math.max(8.5, focusedPlanetRuntime.data.radius * 3.2);
+            // Interactive 360-degree Solar System Scope Orbital Camera (Touch/Mouse Drag + Pinch/Wheel Zoom)
+            const baseDist = Math.max(7.2, focusedPlanetRuntime.data.radius * 2.85);
+            const inspectDist = baseDist * orbitZoomMultiplier;
+            const horiz = Math.cos(orbitElevation) * inspectDist;
             _vec3CamTarget.set(
-              focusedPlanetRuntime.rootGroup.position.x + Math.cos(orbitT) * inspectDist,
-              focusedPlanetRuntime.data.radius * 0.65,
-              focusedPlanetRuntime.rootGroup.position.z + Math.sin(orbitT) * inspectDist
+              focusedPlanetRuntime.rootGroup.position.x +
+                Math.cos(orbitAzimuth) * horiz,
+              focusedPlanetRuntime.rootGroup.position.y +
+                Math.sin(orbitElevation) * inspectDist,
+              focusedPlanetRuntime.rootGroup.position.z +
+                Math.sin(orbitAzimuth) * horiz
             );
-            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-6.0 * dt));
+            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-8.0 * dt));
             camera.lookAt(focusedPlanetRuntime.rootGroup.position);
-            camera.fov = THREE.MathUtils.damp(camera.fov, 52, 6, dt);
+            camera.fov = THREE.MathUtils.damp(camera.fov, 50, 6, dt);
             camera.updateProjectionMatrix();
             playerShip.group.visible = true;
           } else if (cameraModeRef.current === 'chase') {
             _vec3D.set(shakeX, 6.8 + shakeY, 0);
             _vec3CamTarget
               .copy(playerState.position)
-              .addScaledVector(_vec3A, -16.5)
+              .addScaledVector(_vec3A, -16.5 * orbitZoomMultiplier)
               .add(_vec3D);
 
             camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-8.5 * dt));
@@ -2210,17 +2361,16 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             camera.lookAt(_vec3LookAt);
             playerShip.group.visible = false;
           } else {
+            // Interactive 360-degree Solar System Overview Map Camera
+            const mapDist = 265 * orbitZoomMultiplier;
+            const mapElev = Math.max(0.25, orbitElevation + 0.55);
             _vec3CamTarget.set(
-              playerState.position.x * 0.35,
-              275,
-              playerState.position.z * 0.35 + 125
+              Math.cos(orbitAzimuth) * Math.cos(mapElev) * mapDist,
+              Math.sin(mapElev) * mapDist,
+              Math.sin(orbitAzimuth) * Math.cos(mapElev) * mapDist
             );
-            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-5 * dt));
-            camera.lookAt(
-              playerState.position.x * 0.25,
-              0,
-              playerState.position.z * 0.25
-            );
+            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-6.0 * dt));
+            camera.lookAt(0, 0, 0);
             playerShip.group.visible = true;
           }
         }
@@ -2297,6 +2447,59 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             Math.max(0, 1 - playerState.missileCooldown / 3.2) * 100
           );
 
+          // Project 3D Planet & Black Hole coordinates to 2D Screen Space for Solar System Scope Floating Labels
+          const projectedLabels: ProjectedCelestialLabel[] = [];
+          const projectWorldPos = (
+            id: string,
+            name: string,
+            hindiName: string,
+            color: string,
+            worldPos: THREE.Vector3,
+            yOffset: number,
+            distKm: string
+          ) => {
+            _vec3C.copy(worldPos);
+            _vec3C.y += yOffset;
+            _vec3C.project(camera);
+            const isInFront = _vec3C.z > -1 && _vec3C.z < 1;
+            const xPct = (_vec3C.x * 0.5 + 0.5) * 100;
+            const yPct = (-_vec3C.y * 0.5 + 0.5) * 100;
+            const onScreen =
+              isInFront && xPct >= 4 && xPct <= 96 && yPct >= 8 && yPct <= 88;
+            projectedLabels.push({
+              id,
+              name,
+              hindiName,
+              color,
+              x: xPct,
+              y: yPct,
+              visible: onScreen,
+              distKm,
+            });
+          };
+
+          planetsRuntime.forEach((pr) => {
+            projectWorldPos(
+              pr.data.id,
+              pr.data.name,
+              pr.data.hindiName,
+              pr.data.color,
+              pr.rootGroup.position,
+              pr.data.radius + 2.2,
+              pr.data.distanceFromSunKm
+            );
+          });
+
+          projectWorldPos(
+            'blackhole',
+            'Sagittarius A*',
+            'ब्लैक होल (Sgr A*)',
+            '#f59e0b',
+            blackHoleGroup.position,
+            18,
+            '26,670 LY'
+          );
+
           onTelemetryRef.current({
             hull: Math.round(playerState.hull),
             maxHull: playerState.maxHull,
@@ -2326,6 +2529,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             upgrades: { ...playerState.upgrades },
             completedMissions: Array.from(playerState.completedMissions),
             radarBlips: blips,
+            projectedLabels,
           });
         }
 
@@ -2357,7 +2561,12 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         window.removeEventListener('keydown', onKeyDown);
         window.removeEventListener('keyup', onKeyUp);
         window.removeEventListener('blur', onWindowBlur);
-        renderer.domElement.removeEventListener('mousedown', onPointerDown);
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+        renderer.domElement.removeEventListener('wheel', onWheel);
+        renderer.domElement.removeEventListener('touchstart', onTouchStart);
+        renderer.domElement.removeEventListener('touchmove', onTouchMove);
 
         // Full Three.js GPU VRAM cleanup
         scene.traverse((obj) => {

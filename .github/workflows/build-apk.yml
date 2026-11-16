@@ -1,4 +1,4 @@
-name: Build Android APK (Automated Release)
+name: Build Android APK
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
         required: false
         default: 'v2.2.0'
       create_release:
-        description: 'Publish APK directly to GitHub Releases'
+        description: 'Publish single APK directly to GitHub Releases'
         required: false
         type: boolean
         default: true
@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   build-apk:
-    name: Build & Package Android APK
+    name: Build Single Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -83,52 +83,47 @@ jobs:
           echo "android.suppressUnsupportedCompileSdk=34,35,36,37" >> android/gradle.properties
           npx cap sync android
 
-      - name: Build Android APK
+      - name: Build Single Android APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
           cd ..
+          rm -rf dist-apk
           mkdir -p dist-apk
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist-apk/Astral-Odyssey-Solar-Command-v2.2.0.apk
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist-apk/Astral-Odyssey-latest.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist-apk/Astral-Odyssey.apk
           ls -lh dist-apk/
 
-      - name: Upload APK Artifact to GitHub Actions Tab
+      - name: Upload Single APK Artifact to GitHub Actions Tab
         uses: actions/upload-artifact@v4
         with:
           name: Astral-Odyssey-Android-APK
-          path: dist-apk/*.apk
+          path: dist-apk/Astral-Odyssey.apk
           if-no-files-found: error
           retention-days: 60
 
-      - name: Automatically Publish APK to GitHub Releases
+      - name: Automatically Publish Single APK to GitHub Releases
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
         with:
           tag_name: ${{ github.event.inputs.version_tag || 'v2.2.0' }}
-          name: "Astral Odyssey v2.2.0 — Android APK Release"
+          name: "Astral Odyssey v2.2.0 — Android APK"
           body: |
-            ## 🚀 Astral Odyssey: 3D Solar System & Space Command (Android APK)
+            ## 🚀 Astral Odyssey: 3D Solar System & Universe Explorer (Single Android APK)
 
-            Automated APK Build generated in GitHub Actions for Android phones & tablets.
-
-            ### 📲 How to Install the APK on Your Phone:
-            1. Download **`Astral-Odyssey-Solar-Command-v2.2.0.apk`** below directly on your Android phone.
-            2. Open the downloaded `.apk` file from your browser downloads or Files app.
-            3. Tap **Install** and launch **Astral Odyssey**!
+            ### 📲 How to Install on Your Phone:
+            1. Download **`Astral-Odyssey.apk`** below directly on your Android phone.
+            2. Tap the downloaded `.apk` file and select **Install**.
           files: |
-            dist-apk/Astral-Odyssey-Solar-Command-v2.2.0.apk
-            dist-apk/Astral-Odyssey-latest.apk
+            dist-apk/Astral-Odyssey.apk
           draft: false
           prerelease: false
         continue-on-error: true
 
       - name: Generate Actions Tab Summary Report
         run: |
-          echo "## 🚀 Astral Odyssey: Android APK Build Completed Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Astral Odyssey: Single Android APK Ready!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Build Package | Compatibility | Status | Download Location |" >> $GITHUB_STEP_SUMMARY
+          echo "| File Inside Zip | Compatibility | Status | Download Location |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Astral-Odyssey-Solar-Command-v2.2.0.apk** | Android 7.0 – Android 17 | ✅ Compiled | **Actions Tab -> Artifacts -> Astral-Odyssey-Android-APK** |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Astral-Odyssey-latest.apk** | All Android Phones | ✅ Ready | **GitHub Releases Tab / Artifacts** |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Astral-Odyssey.apk** (Single APK Only) | Android 7.0 – Android 17 | ✅ Compiled | **Actions Tab -> Artifacts -> Astral-Odyssey-Android-APK** |" >> $GITHUB_STEP_SUMMARY

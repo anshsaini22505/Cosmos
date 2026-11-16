@@ -26,7 +26,7 @@ export const UpdateAndApkModal: React.FC<UpdateAndApkModalProps> = ({
   const repoBaseUrl = 'https://github.com/anshsaini22505/Cosmos';
   const actionsUrl = `${repoBaseUrl}/actions`;
   const releasesUrl = `${repoBaseUrl}/releases`;
-  const directApkUrl = `${repoBaseUrl}/releases/latest/download/Astral-Odyssey-Solar-Command-v2.2.0.apk`;
+  const directApkUrl = `${repoBaseUrl}/releases/latest/download/Astral-Odyssey.apk`;
 
   const handleCheckUpdates = () => {
     setChecking(true);
