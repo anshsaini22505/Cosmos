@@ -51,6 +51,26 @@ jobs:
 
       - name: Install Project Dependencies
         run: |
+          node -e '
+            const fs = require("fs");
+            (async () => {
+              const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+              if (pkg.devDependencies) delete pkg.devDependencies["vite-plugin-pwa"];
+              if (pkg.dependencies) delete pkg.dependencies["vite-plugin-pwa"];
+              const candidates = ["4.68.1", "4.67.5", "4.65.1", "4.59.0", "4.34.8", "4.24.0"];
+              let verifiedRollup = "4.34.8";
+              for (const v of candidates) {
+                try {
+                  const r = await fetch(`https://registry.npmjs.org/rollup/-/rollup-${v}.tgz`, { method: "HEAD" });
+                  if (r.ok) { verifiedRollup = v; break; }
+                } catch {}
+              }
+              pkg.overrides = { ...(pkg.overrides || {}), rollup: verifiedRollup };
+              fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
+              console.log("Pinned verified rollup tarball override:", verifiedRollup);
+            })();
+          '
+          rm -f bun.lock package-lock.json
           npm install --legacy-peer-deps || (
             echo "Normalizing package.json version ranges for public npm registry..."
             node -e '
