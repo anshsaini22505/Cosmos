@@ -16,6 +16,8 @@ import {
   createRingTexture,
   createAccretionDiskTexture,
   createAtmosphereFresnelMaterial,
+  createMilkyWayPanoramaTexture,
+  createSunGlowSpriteTexture,
 } from '../three/proceduralTextures';
 import {
   createPlayerStarship,
@@ -227,8 +229,14 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
       })();
 
+      const isMobileDevice =
+        typeof window !== 'undefined' &&
+        ('ontouchstart' in window ||
+          navigator.maxTouchPoints > 0 ||
+          window.innerWidth < 900);
+
       const renderer = new THREE.WebGLRenderer({
-        antialias: !isSoftwareGl,
+        antialias: !isSoftwareGl && !isMobileDevice,
         powerPreference: 'high-performance',
       });
       renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -236,50 +244,173 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       renderer.toneMappingExposure = 1.15;
       const basePixelRatio = isSoftwareGl
         ? 1
-        : Math.min(window.devicePixelRatio || 1, 2);
+        : isMobileDevice
+          ? Math.min(window.devicePixelRatio || 1, 1.25)
+          : Math.min(window.devicePixelRatio || 1, 1.65);
       renderer.setPixelRatio(basePixelRatio);
-      renderer.shadowMap.enabled = !isSoftwareGl;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.shadowMap.enabled = false;
       renderer.setSize(container.clientWidth, container.clientHeight);
       container.appendChild(renderer.domElement);
 
       const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
 
-      // 2. Scene, Horizon-Matched Fog & Studio RoomEnvironment
+      // 2. Scene & 360° Milky Way Galactic Panorama Skybox (Solar System Scope Signature Look)
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x040711);
-      scene.fog = new THREE.FogExp2(0x040711, 0.00075);
+      scene.background = new THREE.Color(0x02040a);
 
       const pmremGenerator = new THREE.PMREMGenerator(renderer);
       const envRT = pmremGenerator.fromScene(new RoomEnvironment(), 0.04);
-      scene.environment = envRT.texture;
       pmremGenerator.dispose();
+
+      const skyboxGeo = new THREE.SphereGeometry(1550, 48, 32);
+      const skyboxTex = createMilkyWayPanoramaTexture();
+      const skyboxMat = new THREE.MeshBasicMaterial({
+        map: skyboxTex,
+        side: THREE.BackSide,
+        depthWrite: false,
+      });
+      const skyboxMesh = new THREE.Mesh(skyboxGeo, skyboxMat);
+      skyboxMesh.rotation.z = 0.28;
+      scene.add(skyboxMesh);
+
+      // 2B. Astronomical Constellation Lines Overlay across the Celestial Sphere
+      const constellationGroup = new THREE.Group();
+      const constLineMat = new THREE.LineBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.26,
+      });
+      const constStarMat = new THREE.MeshBasicMaterial({ color: 0xbae6fd });
+      const constStarGeo = new THREE.OctahedronGeometry(2.8, 0);
+
+      // Famous Constellations (Azimuth/Elevation spherical coordinates on r=1380 dome)
+      const CONSTELLATIONS: [number, number][][] = [
+        // Ursa Major (Saptarishi / Big Dipper)
+        [
+          [0.4, 0.55],
+          [0.52, 0.58],
+          [0.62, 0.52],
+          [0.74, 0.48],
+          [0.76, 0.36],
+          [0.9, 0.38],
+          [0.88, 0.5],
+          [0.74, 0.48],
+        ],
+        // Orion (The Hunter / Mriga)
+        [
+          [1.65, 0.25],
+          [1.78, 0.22],
+          [1.74, 0.05],
+          [1.71, 0.04],
+          [1.68, 0.03],
+          [1.64, -0.15],
+          [1.8, -0.14],
+          [1.74, 0.05],
+        ],
+        // Cassiopeia (W-Shape)
+        [
+          [2.55, 0.62],
+          [2.68, 0.52],
+          [2.78, 0.58],
+          [2.9, 0.48],
+          [3.02, 0.59],
+        ],
+        // Scorpius (Vrischika)
+        [
+          [3.8, -0.12],
+          [3.9, -0.18],
+          [4.02, -0.28],
+          [4.12, -0.42],
+          [4.24, -0.45],
+          [4.32, -0.36],
+        ],
+        // Cygnus (Northern Cross)
+        [
+          [4.95, 0.48],
+          [5.1, 0.35],
+          [5.25, 0.22],
+          [5.1, 0.35],
+          [4.98, 0.24],
+          [5.22, 0.46],
+        ],
+        // Leo (Simha)
+        [
+          [5.75, 0.18],
+          [5.88, 0.28],
+          [5.98, 0.25],
+          [5.95, 0.12],
+          [6.15, 0.08],
+          [6.22, 0.19],
+          [5.95, 0.12],
+        ],
+      ];
+
+      CONSTELLATIONS.forEach((chain) => {
+        const pts: THREE.Vector3[] = [];
+        chain.forEach(([az, el]) => {
+          const r = 1380;
+          const v = new THREE.Vector3(
+            r * Math.cos(el) * Math.cos(az),
+            r * Math.sin(el),
+            r * Math.cos(el) * Math.sin(az)
+          );
+          pts.push(v);
+          const sMesh = new THREE.Mesh(constStarGeo, constStarMat);
+          sMesh.position.copy(v);
+          constellationGroup.add(sMesh);
+        });
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+        constellationGroup.add(new THREE.Line(lineGeo, constLineMat));
+      });
+      scene.add(constellationGroup);
+
+      // 2C. Solar System Scope Ecliptic Polar Grid (Concentric AU Rings + 12 Radial Sector Lines)
+      const eclipticGridGroup = new THREE.Group();
+      eclipticGridGroup.position.y = -0.35;
+      const gridLineMat = new THREE.LineBasicMaterial({
+        color: 0x1e3a8a,
+        transparent: true,
+        opacity: 0.28,
+      });
+      [50, 100, 150, 200, 250, 300, 350, 400].forEach((r) => {
+        const pts: THREE.Vector3[] = [];
+        for (let s = 0; s <= 96; s++) {
+          const a = (s / 96) * Math.PI * 2;
+          pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
+        }
+        const gGeo = new THREE.BufferGeometry().setFromPoints(pts);
+        eclipticGridGroup.add(new THREE.Line(gGeo, gridLineMat));
+      });
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const rayPts = [
+          new THREE.Vector3(Math.cos(a) * 28, 0, Math.sin(a) * 28),
+          new THREE.Vector3(Math.cos(a) * 400, 0, Math.sin(a) * 400),
+        ];
+        const rGeo = new THREE.BufferGeometry().setFromPoints(rayPts);
+        eclipticGridGroup.add(new THREE.Line(rGeo, gridLineMat));
+      }
+      scene.add(eclipticGridGroup);
 
       // 3. Camera
       const camera = new THREE.PerspectiveCamera(
-        60,
+        56,
         container.clientWidth / container.clientHeight,
         0.2,
-        1950
+        2200
       );
-      camera.position.set(0, 35, 115);
+      camera.position.set(0, 48, 135);
 
-      // 4. Balanced Studio & Solar Lighting Rig
-      const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x0f172a, 0.55);
+      // 4. True Solar Point-Light Illumination (Dramatic Day/Night Planetary Terminator!)
+      const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x050814, 0.22);
       scene.add(hemiLight);
 
-      const sunLight = new THREE.PointLight(0xffedd5, 3.8, 1050, 0.42);
+      const sunLight = new THREE.PointLight(0xfff7ed, 4.8, 1450, 0.18);
       sunLight.position.set(0, 0, 0);
       scene.add(sunLight);
 
-      const dirKeyLight = new THREE.DirectionalLight(0xfef08a, 1.35);
-      dirKeyLight.position.set(60, 120, 80);
-      dirKeyLight.castShadow = !isSoftwareGl;
-      if (!isSoftwareGl) {
-        dirKeyLight.shadow.mapSize.set(1024, 1024);
-        dirKeyLight.shadow.bias = -0.0005;
-        dirKeyLight.shadow.normalBias = 0.02;
-      }
+      const dirKeyLight = new THREE.DirectionalLight(0xfef08a, 0.25);
+      dirKeyLight.position.set(0, 90, 0);
       scene.add(dirKeyLight);
 
       // 5. Starfield InstancedMesh (1,500 stars across deep space)
@@ -380,41 +511,57 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         scene.add(rootGroup);
 
         if (pData.orbitRadius > 0) {
-          const orbitGeo = new THREE.RingGeometry(
-            pData.orbitRadius - 0.14,
-            pData.orbitRadius + 0.14,
-            160
-          );
-          orbitGeo.rotateX(-Math.PI / 2);
-          const orbitMat = new THREE.MeshBasicMaterial({
+          // Crisp Glowing Solar System Scope Orbit Line
+          const orbitPts: THREE.Vector3[] = [];
+          const segs = 180;
+          for (let s = 0; s <= segs; s++) {
+            const a = (s / segs) * Math.PI * 2;
+            orbitPts.push(
+              new THREE.Vector3(
+                Math.cos(a) * pData.orbitRadius,
+                0,
+                Math.sin(a) * pData.orbitRadius
+              )
+            );
+          }
+          const orbitLineGeo = new THREE.BufferGeometry().setFromPoints(orbitPts);
+          const orbitLineMat = new THREE.LineBasicMaterial({
             color: pData.color,
-            side: THREE.DoubleSide,
             transparent: true,
-            opacity: 0.2,
-            depthWrite: false,
-            polygonOffset: true,
-            polygonOffsetFactor: -1,
-            polygonOffsetUnits: -1,
+            opacity: 0.52,
           });
-          const orbitRing = new THREE.Mesh(orbitGeo, orbitMat);
-          scene.add(orbitRing);
+          scene.add(new THREE.Line(orbitLineGeo, orbitLineMat));
         }
 
         const tex = createPlanetTexture(pData.id, maxAnisotropy);
-        const geo = new THREE.SphereGeometry(pData.radius, 64, 48);
+        const geo = new THREE.SphereGeometry(pData.radius, 48, 36);
 
         let mat: THREE.Material;
         if (pData.id === 'sun') {
           mat = new THREE.MeshBasicMaterial({ map: tex });
-          const coronaGeo = new THREE.SphereGeometry(pData.radius * 1.18, 48, 36);
-          const coronaMat = createAtmosphereFresnelMaterial(0xf59e0b, 1.45, 2.2);
+          const coronaGeo = new THREE.SphereGeometry(pData.radius * 1.16, 40, 28);
+          const coronaMat = createAtmosphereFresnelMaterial(0xf59e0b, 1.65, 2.0);
           sunCoronaMesh = new THREE.Mesh(coronaGeo, coronaMat);
           rootGroup.add(sunCoronaMesh);
 
-          const outerCoronaGeo = new THREE.SphereGeometry(pData.radius * 1.42, 48, 36);
-          const outerCoronaMat = createAtmosphereFresnelMaterial(0xea580c, 0.85, 3.0);
+          const outerCoronaGeo = new THREE.SphereGeometry(pData.radius * 1.38, 40, 28);
+          const outerCoronaMat = createAtmosphereFresnelMaterial(0xea580c, 0.95, 2.8);
           sunOuterCoronaMesh = new THREE.Mesh(outerCoronaGeo, outerCoronaMat);
           rootGroup.add(sunOuterCoronaMesh);
+
+          // Volumetric Solar Lens Flare & Starburst Sprite (Solar System Scope Signature)
+          const sunFlareTex = createSunGlowSpriteTexture();
+          const sunFlareMat = new THREE.SpriteMaterial({
+            map: sunFlareTex,
+            color: 0xfef08a,
+            transparent: true,
+            opacity: 0.92,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          });
+          const sunFlareSprite = new THREE.Sprite(sunFlareMat);
+          sunFlareSprite.scale.set(pData.radius * 5.2, pData.radius * 5.2, 1);
+          rootGroup.add(sunFlareSprite);
         } else {
           const bumpTex = createPlanetBumpTexture(pData.id, maxAnisotropy);
           mat = new THREE.MeshStandardMaterial({
@@ -589,11 +736,31 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         }[] = [];
         if (pData.moons) {
           pData.moons.forEach((m, mIdx) => {
-            const mGeo = new THREE.SphereGeometry(m.radius, 16, 14);
+            // Subtle Moon Orbit Line around parent planet
+            const mOrbitPts: THREE.Vector3[] = [];
+            for (let s = 0; s <= 64; s++) {
+              const a = (s / 64) * Math.PI * 2;
+              mOrbitPts.push(
+                new THREE.Vector3(
+                  Math.cos(a) * m.distance,
+                  0,
+                  Math.sin(a) * m.distance
+                )
+              );
+            }
+            const mOrbitGeo = new THREE.BufferGeometry().setFromPoints(mOrbitPts);
+            const mOrbitMat = new THREE.LineBasicMaterial({
+              color: 0x64748b,
+              transparent: true,
+              opacity: 0.35,
+            });
+            rootGroup.add(new THREE.Line(mOrbitGeo, mOrbitMat));
+
+            const mGeo = new THREE.SphereGeometry(m.radius, 18, 14);
             const mMat = new THREE.MeshStandardMaterial({
               color: m.color,
-              roughness: 0.8,
-              metalness: 0.15,
+              roughness: 0.78,
+              metalness: 0.12,
             });
             const mMesh = new THREE.Mesh(mGeo, mMat);
             const startAngle = mIdx * 2.1;
@@ -1516,14 +1683,10 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
 
         if (!isSoftwareGl) {
           let desiredPR = basePixelRatio;
-          if (graphicsQualityRef.current === 'ultra') {
-            desiredPR = Math.min(2.5, Math.max(1.6, basePixelRatio * 1.25));
-          } else if (graphicsQualityRef.current === 'high') {
-            desiredPR = Math.min(1.75, basePixelRatio);
-          } else if (graphicsQualityRef.current === 'saver') {
+          if (graphicsQualityRef.current === 'saver' || rollingFps < 45) {
             desiredPR = Math.min(1.0, basePixelRatio);
-          } else if (graphicsQualityRef.current === 'auto' && rollingFps < 42) {
-            desiredPR = Math.min(1.0, basePixelRatio);
+          } else if (graphicsQualityRef.current === 'ultra') {
+            desiredPR = isMobileDevice ? Math.min(1.35, basePixelRatio) : Math.min(1.65, basePixelRatio);
           }
           if (Math.abs(desiredPR - currentAppliedPixelRatio) > 0.05) {
             currentAppliedPixelRatio = desiredPR;
@@ -2312,10 +2475,10 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             );
             camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-7.0 * dt));
             camera.lookAt(blackHoleGroup.position);
-            playerShip.group.visible = true;
+            playerShip.group.visible = false;
           } else if (focusedPlanetRuntime) {
             // Interactive 360-degree Solar System Scope Orbital Camera (Touch/Mouse Drag + Pinch/Wheel Zoom)
-            const baseDist = Math.max(7.2, focusedPlanetRuntime.data.radius * 2.85);
+            const baseDist = Math.max(6.8, focusedPlanetRuntime.data.radius * 2.65);
             const inspectDist = baseDist * orbitZoomMultiplier;
             const horiz = Math.cos(orbitElevation) * inspectDist;
             _vec3CamTarget.set(
@@ -2328,9 +2491,9 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             );
             camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-8.0 * dt));
             camera.lookAt(focusedPlanetRuntime.rootGroup.position);
-            camera.fov = THREE.MathUtils.damp(camera.fov, 50, 6, dt);
+            camera.fov = THREE.MathUtils.damp(camera.fov, 48, 6, dt);
             camera.updateProjectionMatrix();
-            playerShip.group.visible = true;
+            playerShip.group.visible = false;
           } else if (cameraModeRef.current === 'chase') {
             _vec3D.set(shakeX, 6.8 + shakeY, 0);
             _vec3CamTarget
@@ -2361,17 +2524,17 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             camera.lookAt(_vec3LookAt);
             playerShip.group.visible = false;
           } else {
-            // Interactive 360-degree Solar System Overview Map Camera
-            const mapDist = 265 * orbitZoomMultiplier;
-            const mapElev = Math.max(0.25, orbitElevation + 0.55);
+            // Interactive 360-degree Solar System Scope Overview Camera
+            const mapDist = 175 * orbitZoomMultiplier;
+            const mapElev = Math.max(-0.85, Math.min(1.25, orbitElevation + 0.18));
             _vec3CamTarget.set(
               Math.cos(orbitAzimuth) * Math.cos(mapElev) * mapDist,
               Math.sin(mapElev) * mapDist,
               Math.sin(orbitAzimuth) * Math.cos(mapElev) * mapDist
             );
-            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-6.0 * dt));
+            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-6.5 * dt));
             camera.lookAt(0, 0, 0);
-            playerShip.group.visible = true;
+            playerShip.group.visible = false;
           }
         }
 
@@ -2397,9 +2560,9 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           }
         }
 
-        // Sync Telemetry & Tactical Radar Blips to React HUD at ~10Hz
+        // Sync Telemetry to React HUD at a gentle ~2.5Hz (0.4s) to prevent React re-render lag on Android phones!
         hudSyncTimer += dt;
-        if (hudSyncTimer >= 0.1) {
+        if (hudSyncTimer >= 0.4) {
           hudSyncTimer = 0;
           const nearest = getNearestPlanet();
 

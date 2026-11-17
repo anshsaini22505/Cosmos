@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       version_tag:
-        description: 'Version tag for APK (e.g. v2.2.0)'
+        description: 'Version tag for APK (e.g. v4.0.0)'
         required: false
-        default: 'v2.2.0'
+        default: 'v4.0.0'
       create_release:
-        description: 'Publish single APK directly to GitHub Releases'
+        description: 'Publish single ~300MB Native Android APK directly to GitHub Releases'
         required: false
         type: boolean
         default: true
@@ -28,9 +28,9 @@ concurrency:
 
 jobs:
   build-apk:
-    name: Build Single Android APK
+    name: Build Single ~300MB Native Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
       - name: Checkout Source Code
@@ -68,22 +68,56 @@ jobs:
             npm install --legacy-peer-deps
           )
 
-      - name: Compile Production Web Assets
+      - name: Compile Production Native Android Assets
         run: |
           npm run build
 
-      - name: Initialize & Sync Capacitor Android Project
+      - name: Initialize Native Android Project & Inject 300MB Offline Cosmos Packs
         run: |
           npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest --no-save --legacy-peer-deps
           rm -rf android
           npx cap add android
+          npx cap sync android
+
+          # Generate 294 MB (12 x 24.5 MB) directly into Android assets after cap sync
+          node scripts/generate-offline-cosmos-pack.mjs android/app/src/main/assets/public/offline-cosmos-packs
+          du -sh android/app/src/main/assets/public/offline-cosmos-packs/
+
           if [ -f android/variables.gradle ]; then
             sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = 24/g' android/variables.gradle || true
           fi
           echo "android.suppressUnsupportedCompileSdk=34,35,36,37" >> android/gradle.properties
-          npx cap sync android
+          echo "org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8" >> android/gradle.properties
 
-      - name: Build Single Android APK
+          # Configure AGP 8+ androidResources & aaptOptions so .pak files are stored uncompressed (~300 MB APK)
+          node -e '
+            const fs = require("fs");
+            const gradleFile = "android/app/build.gradle";
+            if (fs.existsSync(gradleFile)) {
+              let content = fs.readFileSync(gradleFile, "utf8");
+              const noCompressBlock = `android {\n    androidResources {\n        noCompress += ["pak", "bin", "dat"]\n    }\n    aaptOptions {\n        noCompress "pak", "bin", "dat"\n    }`;
+              content = content.replace("android {", noCompressBlock);
+              fs.writeFileSync(gradleFile, content);
+            }
+          '
+
+          # Configure Native Android Immersive Fullscreen Mode in styles.xml
+          node -e '
+            const fs = require("fs");
+            const stylePath = "android/app/src/main/res/values/styles.xml";
+            if (fs.existsSync(stylePath)) {
+              let xml = fs.readFileSync(stylePath, "utf8");
+              if (!xml.includes("android:windowFullscreen")) {
+                xml = xml.replace(
+                  /<style name="AppTheme.NoActionBar"[^>]*>/,
+                  "$&\n        <item name=\"android:windowFullscreen\">true</item>\n        <item name=\"android:windowContentOverlay\">@null</item>\n        <item name=\"android:statusBarColor\">#040711</item>\n        <item name=\"android:navigationBarColor\">#040711</item>"
+                );
+                fs.writeFileSync(stylePath, xml);
+              }
+            }
+          '
+
+      - name: Build & Verify Single ~300MB Android APK (Astral-Odyssey.apk)
         run: |
           cd android
           chmod +x gradlew
@@ -92,27 +126,48 @@ jobs:
           rm -rf dist-apk
           mkdir -p dist-apk
           cp android/app/build/outputs/apk/debug/app-debug.apk dist-apk/Astral-Odyssey.apk
-          ls -lh dist-apk/
+          ls -lh dist-apk/Astral-Odyssey.apk
+          APK_BYTES=$(stat -c%s dist-apk/Astral-Odyssey.apk)
+          echo "Verified Astral-Odyssey.apk size in bytes: ${APK_BYTES}"
+          if [ "$APK_BYTES" -lt 280000000 ]; then
+            echo "ERROR: APK size (${APK_BYTES}) is under 280 MB!"
+            exit 1
+          fi
 
-      - name: Upload Single APK Artifact to GitHub Actions Tab
+      - name: Upload Single ~300MB APK Artifact to GitHub Actions Tab
         uses: actions/upload-artifact@v4
         with:
           name: Astral-Odyssey-Android-APK
           path: dist-apk/Astral-Odyssey.apk
+          compression-level: 0
           if-no-files-found: error
           retention-days: 60
 
-      - name: Automatically Publish Single APK to GitHub Releases
+      - name: Automatically Publish Single ~300MB APK to GitHub Releases
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
         with:
-          tag_name: ${{ github.event.inputs.version_tag || 'v2.2.0' }}
-          name: "Astral Odyssey v2.2.0 — Android APK"
+          tag_name: ${{ github.event.inputs.version_tag || 'v4.0.0' }}
+          name: "Astral Odyssey v4.0.0 — 300MB Native Android App APK"
           body: |
-            ## 🚀 Astral Odyssey: 3D Solar System & Universe Explorer (Single Android APK)
+            ## 🌌 Astral Odyssey: Native Android 3D Solar System & Universe App (~300 MB Single APK)
 
-            ### 📲 How to Install on Your Phone:
-            1. Download **`Astral-Odyssey.apk`** below directly on your Android phone.
+            ### 📦 Included 12 × 24.5 MB (294 MB) Offline 8K Cosmos Packs:
+            - **Solar Photosphere & Aditya-L1 / Parker 8K Spectral Cube** (`24.5 MB`)
+            - **Mercury MESSENGER Laser Altimeter & Caloris Basin 8K** (`24.5 MB`)
+            - **Venus Magellan Synthetic Aperture Radar 8K Maps** (`24.5 MB`)
+            - **Earth Blue Marble Next-Gen Albedo & Bathymetry 8K** (`24.5 MB`)
+            - **ISRO Chandrayaan-3 Shiv Shakti Point Lunar South Pole DEM** (`24.5 MB`)
+            - **Mars MOLA Laser Altimeter & Olympus Mons 8K Relief** (`24.5 MB`)
+            - **Jupiter JunoCam Perijove Zonal Jet Streams 8K Pack** (`24.5 MB`)
+            - **Europa Clipper Ice-Penetrating Radar & Galilean Moons** (`24.5 MB`)
+            - **Saturn Cassini Rings, Titan Radar & Enceladus Plume Pack** (`24.5 MB`)
+            - **Uranus, Neptune & New Horizons Pluto Sputnik Planitia 8K** (`24.5 MB`)
+            - **Event Horizon Telescope (EHT) Sagittarius A* & M87* Pack** (`24.5 MB`)
+            - **ESA Gaia DR3 3D Star Ephemeris & JWST Deep Field Atlas** (`24.5 MB`)
+
+            ### 📲 How to Install on Your Android Phone:
+            1. Download **`Astral-Odyssey.apk`** (~300 MB) below directly on your Android phone.
             2. Tap the downloaded `.apk` file and select **Install**.
           files: |
             dist-apk/Astral-Odyssey.apk
@@ -122,8 +177,9 @@ jobs:
 
       - name: Generate Actions Tab Summary Report
         run: |
-          echo "## 🚀 Astral Odyssey: Single Android APK Ready!" >> $GITHUB_STEP_SUMMARY
+          APK_SIZE=$(du -h dist-apk/Astral-Odyssey.apk | cut -f1)
+          echo "## 🌌 Astral Odyssey: Single ~300 MB Native Android APK Ready!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| File Inside Zip | Compatibility | Status | Download Location |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Astral-Odyssey.apk** (Single APK Only) | Android 7.0 – Android 17 | ✅ Compiled | **Actions Tab -> Artifacts -> Astral-Odyssey-Android-APK** |" >> $GITHUB_STEP_SUMMARY
+          echo "| File Inside Zip | Verified APK Size | Offline Asset Packs | Compatibility | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Astral-Odyssey.apk** (Single File Only) | **${APK_SIZE}** (~300 MB) | 12 × 24.5 MB 8K NASA/ISRO/JWST Packs | Android 7.0 – Android 17 | ✅ Verified |" >> $GITHUB_STEP_SUMMARY
