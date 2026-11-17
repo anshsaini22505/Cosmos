@@ -31,6 +31,10 @@ import {
   MobileTouchController,
   TouchInputState,
 } from './components/MobileTouchAndRadar';
+import {
+  planetaryAudio,
+  PLANET_AUDIO_PROFILES,
+} from './services/spaceAudioAndPacks';
 
 const INITIAL_TELEMETRY: HudTelemetry = {
   hull: 100,
@@ -154,6 +158,7 @@ export default function App() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [showUpdateModal, setShowUpdateModal] = useState<boolean>(false);
   const [showTouchPad, setShowTouchPad] = useState<boolean>(false);
+  const [playingPlanetAudioId, setPlayingPlanetAudioId] = useState<string | null>(null);
 
   const t = getUIStrings(langCode);
   const currentLangObj =
@@ -216,6 +221,8 @@ export default function App() {
   const handleSelectPlanetInScope = (planetId: string) => {
     triggerAndroidHaptic(15);
     soundEngine.playCollect();
+    planetaryAudio.stop();
+    setPlayingPlanetAudioId(null);
     setActiveNavTab('scope');
     if (planetId === 'blackhole') {
       canvasRef.current?.warpToBlackHole();
@@ -233,6 +240,19 @@ export default function App() {
       : focusPlanetId
         ? SOLAR_SYSTEM_DATA.find((p) => p.id === focusPlanetId) || null
         : null;
+
+  const activeAudioProfile = focusedPlanetData
+    ? PLANET_AUDIO_PROFILES[focusedPlanetData.id === 'blackhole' ? 'sagittarius-a' : focusedPlanetData.id] ||
+      PLANET_AUDIO_PROFILES.sun
+    : null;
+
+  const handleTogglePlanetSpaceAudio = async () => {
+    if (!focusedPlanetData) return;
+    triggerAndroidHaptic(14);
+    const key = focusedPlanetData.id === 'blackhole' ? 'sagittarius-a' : focusedPlanetData.id;
+    const isNowPlaying = await planetaryAudio.togglePlanetAudio(key);
+    setPlayingPlanetAudioId(isNowPlaying ? key : null);
+  };
 
   const focusedPlanetLayers = focusedPlanetData
     ? PLANET_INTERNAL_LAYERS[focusedPlanetData.id] || []
@@ -421,6 +441,8 @@ export default function App() {
               <button
                 onClick={() => {
                   triggerAndroidHaptic(10);
+                  planetaryAudio.stop();
+                  setPlayingPlanetAudioId(null);
                   setFocusPlanetId(null);
                 }}
                 className="px-3 py-1 rounded-full bg-slate-800 text-xs font-mono text-amber-300 active:scale-95 cursor-pointer shrink-0"
@@ -428,6 +450,36 @@ export default function App() {
                 ✕ {isHindi ? 'वापस' : 'Back'}
               </button>
             </div>
+
+            {/* Real 300MB Pack Planetary Magnetosphere & Plasma Wave Audio Bar */}
+            {activeAudioProfile && (
+              <div className="mt-2 bg-gradient-to-r from-[#0e1b38] to-[#132347] border border-sky-500/40 rounded-xl p-2 flex items-center justify-between gap-2 shrink-0">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-mono text-sky-300 truncate">
+                    🛰️ {activeAudioProfile.instrument}
+                  </div>
+                  <div className="text-xs font-bold text-white truncate">
+                    {isHindi ? activeAudioProfile.hindiTitle : activeAudioProfile.title}
+                  </div>
+                </div>
+                <button
+                  onClick={handleTogglePlanetSpaceAudio}
+                  className={`px-3 py-1.5 rounded-lg font-display font-bold text-xs shrink-0 cursor-pointer transition active:scale-95 ${
+                    playingPlanetAudioId
+                      ? 'bg-emerald-400 text-slate-950 shadow-md'
+                      : 'bg-amber-400 text-slate-950'
+                  }`}
+                >
+                  {playingPlanetAudioId
+                    ? isHindi
+                      ? '⏹ ध्वनि रोकें'
+                      : '⏹ Stop Wave'
+                    : isHindi
+                      ? '🔊 अंतरिक्ष ध्वनि सुनें'
+                      : '🔊 Listen Wave'}
+                </button>
+              </div>
+            )}
 
             {/* 3 Native Android Segmented Pills */}
             <div className="grid grid-cols-3 gap-1 bg-[#0c162c] p-1 rounded-xl my-2 text-xs font-display font-bold shrink-0">

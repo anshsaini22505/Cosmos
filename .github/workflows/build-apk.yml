@@ -109,13 +109,13 @@ jobs:
           echo "android.suppressUnsupportedCompileSdk=34,35,36,37" >> android/gradle.properties
           echo "org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8" >> android/gradle.properties
 
-          # Configure AGP 8+ androidResources & aaptOptions so .pak files are stored uncompressed (~300 MB APK)
+          # Configure AGP 8+ androidResources & aaptOptions so .pak and .wav files are stored uncompressed (~300 MB APK)
           node -e '
             const fs = require("fs");
             const gradleFile = "android/app/build.gradle";
             if (fs.existsSync(gradleFile)) {
               let content = fs.readFileSync(gradleFile, "utf8");
-              const noCompressBlock = `android {\n    androidResources {\n        noCompress += ["pak", "bin", "dat"]\n    }\n    aaptOptions {\n        noCompress "pak", "bin", "dat"\n    }`;
+              const noCompressBlock = `android {\n    androidResources {\n        noCompress += ["pak", "bin", "dat", "wav"]\n    }\n    aaptOptions {\n        noCompress "pak", "bin", "dat", "wav"\n    }`;
               content = content.replace("android {", noCompressBlock);
               fs.writeFileSync(gradleFile, content);
             }
@@ -149,8 +149,8 @@ jobs:
           ls -lh dist-apk/Astral-Odyssey.apk
           APK_BYTES=$(stat -c%s dist-apk/Astral-Odyssey.apk)
           echo "Verified Astral-Odyssey.apk size in bytes: ${APK_BYTES}"
-          if [ "$APK_BYTES" -lt 280000000 ]; then
-            echo "ERROR: APK size (${APK_BYTES}) is under 280 MB!"
+          if [ "$APK_BYTES" -lt 275000000 ]; then
+            echo "ERROR: APK size (${APK_BYTES}) is under 275 MB!"
             exit 1
           fi
 

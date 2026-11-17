@@ -29,6 +29,7 @@ import {
 } from '../three/proceduralModels';
 import { soundEngine } from '../audio/soundEngine';
 import { TouchInputState, RadarBlip } from './MobileTouchAndRadar';
+import { tryLoadOfflinePlanetTexture } from '../services/spaceAudioAndPacks';
 
 export type GameStateMode = 'title' | 'playing' | 'paused' | 'victory' | 'gameover';
 export type CameraViewMode = 'chase' | 'cockpit' | 'overview';
@@ -633,6 +634,15 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
                 side: THREE.DoubleSide,
               });
         coreGroup.add(new THREE.Mesh(cutawayShellGeo, cutawayShellMat));
+
+        // Automatically upgrade planet texture from bundled ~300MB offline NASA / 2048x1024 RGBA8 packs when available
+        void tryLoadOfflinePlanetTexture(pData.id, (offlineTex) => {
+          offlineTex.anisotropy = maxAnisotropy;
+          (mat as THREE.MeshStandardMaterial | THREE.MeshBasicMaterial).map = offlineTex;
+          mat.needsUpdate = true;
+          (cutawayShellMat as THREE.MeshStandardMaterial | THREE.MeshBasicMaterial).map = offlineTex;
+          cutawayShellMat.needsUpdate = true;
+        });
 
         // 2. Solid Concentric Interior Layers (Mantle / Radiative Zone, Outer Core, Inner Core)
         const mantleColor =
