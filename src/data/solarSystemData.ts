@@ -516,6 +516,12 @@ export interface SpaceProbeInfo {
   name: string;
   hindiName: string;
   agency: string;
+  launchYear: string;
+  currentLocationEn: string;
+  currentLocationHi: string;
+  distanceFromEarth: string;
+  speedKmS: string;
+  status: string;
   hostPlanetId: string;
   orbitOffset: number;
   summaryEn: string;
@@ -524,44 +530,470 @@ export interface SpaceProbeInfo {
 
 export const SPACE_PROBES: SpaceProbeInfo[] = [
   {
-    id: 'aditya_l1',
-    name: 'Aditya-L1 Solar Probe',
-    hindiName: 'इसरो आदित्य-L1 सौर यान',
-    agency: 'ISRO (India)',
+    id: 'parker_solar',
+    name: 'Parker Solar Probe',
+    hindiName: 'पार्कर सोलर प्रोब (सबसे तेज़ मानव निर्मित यान)',
+    agency: 'NASA',
+    launchYear: '2018',
+    currentLocationEn: 'Inner Solar Corona (6.2 Million km from Sun surface)',
+    currentLocationHi: 'सूर्य के कोरोना के भीतर (सूर्य से मात्र 62 लाख किमी दूर)',
+    distanceFromEarth: '143 Million km',
+    speedKmS: '192 km/s (6,92,000 km/h — Fastest Human Craft)',
+    status: 'Active · Touching the Sun',
     hostPlanetId: 'sun',
-    orbitOffset: 25,
-    summaryEn: 'India’s first dedicated solar coronagraphy spacecraft stationed at Lagrange Point L1 to study solar flares and coronal mass ejections.',
-    summaryHi: 'सूर्य के कोरोना और सौर तूफानों का अध्ययन करने के लिए भारत (ISRO) द्वारा भेजा गया पहला सौर अंतरिक्ष वेधशाला मिशन।',
+    orbitOffset: 22.5,
+    summaryEn:
+      'The fastest human-made spacecraft in history, diving directly through the Sun’s outer atmosphere (corona) behind a carbon-composite heat shield to solve coronal heating mysteries.',
+    summaryHi:
+      'मानव इतिहास का सबसे तेज़ अंतरिक्ष यान (6,92,000 किमी/घंटा), जिसने सूर्य के बाहरी वायुमंडल (कोरोना) को छूकर इतिहास रच दिया।',
+  },
+  {
+    id: 'aditya_l1',
+    name: 'ISRO Aditya-L1 Solar Observatory',
+    hindiName: 'इसरो आदित्य-L1 सौर वेधशाला यान',
+    agency: 'ISRO (India)',
+    launchYear: '2023',
+    currentLocationEn: 'Sun-Earth Lagrange Point L1 Halo Orbit',
+    currentLocationHi: 'सूर्य-पृथ्वी लैग्रेंज पॉइंट L1 हेलो कक्षा',
+    distanceFromEarth: '1.5 Million km (Towards Sun)',
+    speedKmS: '29.8 km/s (Co-orbiting L1)',
+    status: 'Active · 24×7 Solar Monitoring',
+    hostPlanetId: 'sun',
+    orbitOffset: 27,
+    summaryEn:
+      'India’s first dedicated solar coronagraphy spacecraft stationed at Lagrange Point L1 to continuously monitor solar flares, magnetic storms, and coronal mass ejections.',
+    summaryHi:
+      'सूर्य के कोरोना और सौर तूफानों पर बिना किसी ग्रहण के 24 घंटे नज़र रखने वाला भारत (ISRO) का पहला सौर अंतरिक्ष यान।',
+  },
+  {
+    id: 'bepicolombo',
+    name: 'BepiColombo & MESSENGER',
+    hindiName: 'बेपीकोलंबो और मैसेंजर (बुध मिशन)',
+    agency: 'ESA / JAXA / NASA',
+    launchYear: '2018',
+    currentLocationEn: 'Mercury Transfer & Polar Flyby Trajectory',
+    currentLocationHi: 'बुध ग्रह की ध्रुवीय कक्षा एवं फ्लाईबाई पथ',
+    distanceFromEarth: '92 Million km',
+    speedKmS: '47.4 km/s',
+    status: 'Active · Mercury Reconnaissance',
+    hostPlanetId: 'mercury',
+    orbitOffset: 4.5,
+    summaryEn:
+      'Dual-spacecraft mission mapping Mercury’s massive iron core, polar water-ice craters, and magnetospheric bow shock closest to the Sun.',
+    summaryHi:
+      'बुध ग्रह के विशाल लोहे के कोर, ध्रुवीय बर्फ और चुंबकीय क्षेत्र का नक्शा बनाने वाला संयुक्त यूरोपीय-जापानी अंतरिक्ष यान।',
+  },
+  {
+    id: 'akatsuki_venera',
+    name: 'Akatsuki & Venera / Shukrayaan Relay',
+    hindiName: 'अकात्सुकी और वेनेरा / शुक्रयान मिशन',
+    agency: 'JAXA / ISRO / Roscosmos',
+    launchYear: '2010 / Upcoming',
+    currentLocationEn: 'Venus Equatorial Super-Rotation Orbit',
+    currentLocationHi: 'शुक्र ग्रह की भूमध्यरेखीय कक्षा',
+    distanceFromEarth: '41 Million km',
+    speedKmS: '35.0 km/s',
+    status: 'Orbital Weather & Radar Mapping',
+    hostPlanetId: 'venus',
+    orbitOffset: 5.8,
+    summaryEn:
+      'Tracks Venus’s 360 km/h sulfuric acid cloud super-rotation, planetary gravity waves, and volcanic surface thermal anomalies.',
+    summaryHi:
+      'शुक्र ग्रह के घने तेज़ाबी बादलों, सतह के ज्वालामुखियों और अत्यधिक ग्रीनहाउस प्रभाव का अध्ययन करने वाला मिशन।',
   },
   {
     id: 'chandrayaan_iss',
-    name: 'Chandrayaan-3 & Orbital Relay',
-    hindiName: 'चंद्रयान-3 एवं अंतरिक्ष रिले',
-    agency: 'ISRO / International',
+    name: 'ISRO Chandrayaan-3 & International Space Station (ISS)',
+    hindiName: 'इसरो चंद्रयान-3 (शिव शक्ति पॉइंट) व स्पेस स्टेशन',
+    agency: 'ISRO / NASA / ESA / JAXA',
+    launchYear: '2023 / 1998',
+    currentLocationEn: 'Lunar South Pole (69.37°S) & Low Earth Orbit (420 km)',
+    currentLocationHi: 'चंद्रमा का दक्षिणी ध्रुव (शिव शक्ति पॉइंट) व पृथ्वी कक्षा',
+    distanceFromEarth: '384,400 km (Moon) / 420 km (ISS)',
+    speedKmS: '7.66 km/s (ISS) / Lunar Surface',
+    status: 'Historic Landmark & Crewed Station',
     hostPlanetId: 'earth',
     orbitOffset: 7.2,
-    summaryEn: 'Commemorating the historic first soft landing near the Lunar South Pole (Shiv Shakti Point) and continuous low-Earth orbital research.',
-    summaryHi: 'चंद्रमा के दक्षिणी ध्रुव (शिव शक्ति पॉइंट) पर ऐतिहासिक सफल लैंडिंग करने वाला भारत का गौरवशाली चंद्रयान-3 मिशन।',
+    summaryEn:
+      'Celebrates India’s historic Chandrayaan-3 Vikram lander & Pragyan rover at the Lunar South Pole alongside humanity’s permanently crewed International Space Station.',
+    summaryHi:
+      'चंद्रमा के दक्षिणी ध्रुव (शिव शक्ति पॉइंट) पर उतरने वाला दुनिया का पहला यान चंद्रयान-3 और पृथ्वी की कक्षा में घूमता अंतरराष्ट्रीय स्पेस स्टेशन।',
+  },
+  {
+    id: 'jwst',
+    name: 'James Webb Space Telescope (JWST)',
+    hindiName: 'जेम्स वेब स्पेस टेलीस्कोप (JWST)',
+    agency: 'NASA / ESA / CSA',
+    launchYear: '2021',
+    currentLocationEn: 'Sun-Earth Lagrange Point L2 (1.5M km beyond Earth)',
+    currentLocationHi: 'सूर्य-पृथ्वी L2 बिंदु (पृथ्वी से 15 लाख किमी दूर)',
+    distanceFromEarth: '1.5 Million km',
+    speedKmS: '29.8 km/s',
+    status: 'Active · Deep Universe Infrared Eye',
+    hostPlanetId: 'earth',
+    orbitOffset: 10.5,
+    summaryEn:
+      'Equipped with a 6.5-meter gold-coated beryllium mirror, JWST peers through cosmic dust to observe the very first galaxies formed 13.5 billion years ago and analyzes exoplanet atmospheres.',
+    summaryHi:
+      '6.5 मीटर के सोने की परत वाले दर्पण से लैस अब तक का सबसे शक्तिशाली टेलीस्कोप, जो 13.5 अरब साल पुरानी पहली आकाशगंगाओं को देख रहा है।',
   },
   {
     id: 'mangalyaan',
-    name: 'Mangalyaan (Mars Orbiter Mission)',
-    hindiName: 'मंगलयान (MOM)',
-    agency: 'ISRO (India)',
+    name: 'ISRO Mangalyaan (MOM) & NASA Perseverance Rover',
+    hindiName: 'इसरो मंगलयान (MOM) और पर्सिवियरेंस रोवर',
+    agency: 'ISRO / NASA',
+    launchYear: '2013 / 2020',
+    currentLocationEn: 'Mars High Elliptical Orbit & Jezero Crater Delta',
+    currentLocationHi: 'मंगल ग्रह की कक्षा और जेज़ेरो क्रेटर की सतह',
+    distanceFromEarth: '225 Million km',
+    speedKmS: '24.1 km/s',
+    status: 'Mars Surface & Orbital Exploration',
     hostPlanetId: 'mars',
     orbitOffset: 6.4,
-    summaryEn: 'Made India the first nation in the world to reach Mars orbit on its maiden attempt, imaging Martian dust storms and Phobos.',
-    summaryHi: 'अपने पहले ही प्रयास में मंगल की कक्षा में पहुँचकर विश्व रिकॉर्ड बनाने वाला भारतीय अंतरिक्ष मिशन।',
+    summaryEn:
+      'India’s record-breaking maiden Mars orbiter combined with NASA’s nuclear-powered Perseverance rover and Ingenuity helicopter searching for ancient microbial biosignatures in Jezero Crater.',
+    summaryHi:
+      'पहले ही प्रयास में मंगल पर पहुँचने वाला भारत का मंगलयान और मंगल की मिट्टी में प्राचीन जीवन के निशान खोजता नासा का पर्सिवियरेंस रोवर।',
+  },
+  {
+    id: 'juno_europa',
+    name: 'NASA Juno Orbiter & Europa Clipper',
+    hindiName: 'नासा जूनो और यूरोपा क्लिपर यान',
+    agency: 'NASA',
+    launchYear: '2011 / 2024',
+    currentLocationEn: 'Jupiter Polar Perijove Orbit & Galilean Moon System',
+    currentLocationHi: 'बृहस्पति की ध्रुवीय कक्षा और यूरोपा चंद्रमा',
+    distanceFromEarth: '778 Million km',
+    speedKmS: '57.8 km/s (Perijove Pass)',
+    status: 'Active · Probing Jupiter & Europa Ocean',
+    hostPlanetId: 'jupiter',
+    orbitOffset: 13.5,
+    summaryEn:
+      'Dives repeatedly beneath Jupiter’s intense radiation belts to map its fuzzy core, cyclonic polar storms, and Europa’s subsurface saltwater ocean.',
+    summaryHi:
+      'बृहस्पति के भयानक रेडिएशन और तूफानों के बीच गोता लगाने वाला जूनो यान और बर्फीले चंद्रमा यूरोपा के समुद्र की जांच करता यूरोपा क्लिपर।',
+  },
+  {
+    id: 'cassini_huygens',
+    name: 'Cassini-Huygens & Dragonfly Titan Mission',
+    hindiName: 'कैसिनी-हाइगेंस और टाइटन ड्रैगनफ्लाई मिशन',
+    agency: 'NASA / ESA / ASI',
+    launchYear: '1997',
+    currentLocationEn: 'Saturn Ring Plane & Titan Shangri-La Methane Dunes',
+    currentLocationHi: 'शनि के छल्लों के बीच और टाइटन चंद्रमा की सतह',
+    distanceFromEarth: '1.43 Billion km',
+    speedKmS: '34.8 km/s',
+    status: 'Grand Finale Legacy · Titan Lander',
+    hostPlanetId: 'saturn',
+    orbitOffset: 19.2,
+    summaryEn:
+      'Revealed warm water geysers erupting from Enceladus, landed the Huygens probe on Titan’s liquid methane shoreline, and dived between Saturn and its innermost rings.',
+    summaryHi:
+      'शनि के छल्लों, एनसेलेडस के गर्म पानी के फव्वारों और टाइटन के तरल मीथेन समुद्रों का खुलासा करने वाला ऐतिहासिक अंतरिक्ष यान।',
+  },
+  {
+    id: 'voyager_2',
+    name: 'Voyager-2 Interstellar & Ice Giant Explorer',
+    hindiName: 'वॉयेजर-2 (अरुण-वरुण व अंतरतारकीय यान)',
+    agency: 'NASA',
+    launchYear: '1977',
+    currentLocationEn: 'Interstellar Space (Constellation Pavo — 137 AU)',
+    currentLocationHi: 'अंतरतारकीय अंतरिक्ष (सौर मंडल के बाहर — 20.5 अरब किमी)',
+    distanceFromEarth: '20.5 Billion km (19 Light-Hours)',
+    speedKmS: '15.3 km/s (55,000 km/h)',
+    status: 'Active in Interstellar Space (47+ Years)',
+    hostPlanetId: 'uranus',
+    orbitOffset: 9.8,
+    summaryEn:
+      'The only spacecraft in history to visit all four giant planets—Jupiter, Saturn, Uranus, and Neptune—before crossing the heliopause into interstellar space in 2018.',
+    summaryHi:
+      'इतिहास का एकमात्र यान जिसने बृहस्पति, शनि, अरुण (Uranus) और वरुण (Neptune) चारों विशाल ग्रहों की यात्रा की और अब सौर मंडल के बाहर अंतरतारकीय अंतरिक्ष में सक्रिय है।',
   },
   {
     id: 'voyager_1',
-    name: 'Voyager-1 Interstellar Probe',
-    hindiName: 'वॉयेजर-1 अंतरतारकीय यान',
+    name: 'Voyager-1 Farthest Human Spacecraft',
+    hindiName: 'वॉयेजर-1 (पृथ्वी से सबसे दूर पहुँचा मानव यान)',
     agency: 'NASA',
+    launchYear: '1977',
+    currentLocationEn: 'Deep Interstellar Space (Constellation Ophiuchus — 165 AU)',
+    currentLocationHi: 'गहरा अंतरतारकीय अंतरिक्ष (पृथ्वी से 24.6 अरब किमी दूर!)',
+    distanceFromEarth: '24.6 Billion km (22h 45m Radio Light-Time)',
+    speedKmS: '17.0 km/s (61,200 km/h)',
+    status: 'Active · Farthest Object Built by Humanity',
     hostPlanetId: 'neptune',
-    orbitOffset: 9.5,
-    summaryEn: 'Carrying the Golden Record with greetings in 55 languages (including Hindi), Voyager-1 is humanity’s farthest spacecraft.',
-    summaryHi: 'सोने के रिकॉर्ड (Golden Record) पर हिंदी सहित 55 भाषाओं में पृथ्वी का संदेश लेकर अनंत अंतरिक्ष में जाने वाला सबसे दूरस्थ यान।',
+    orbitOffset: 10.5,
+    summaryEn:
+      'Over 24.6 billion km from Earth in interstellar space! Carries the gold-plated Voyager Golden Record with Indian classical music ("Jaat Kahan Ho") and Hindi greetings ("धरती के वासियों की ओर से नमस्कार").',
+    summaryHi:
+      'पृथ्वी से 24.6 अरब किलोमीटर दूर! यह सौर मंडल की सीमा (Heliopause) पार कर चुका है और इसमें सोने के रिकॉर्ड पर हिंदी संदेश "धरती के वासियों की ओर से नमस्कार" अंकित है।',
+  },
+  {
+    id: 'new_horizons',
+    name: 'New Horizons Pluto & Kuiper Belt Probe',
+    hindiName: 'न्यू होराइजन्स (प्लूटो और कुइपर बेल्ट यान)',
+    agency: 'NASA',
+    launchYear: '2006',
+    currentLocationEn: 'Outer Kuiper Belt (59 AU from Sun)',
+    currentLocationHi: 'बाहरी कुइपर बेल्ट (सूर्य से 8.8 अरब किमी दूर)',
+    distanceFromEarth: '8.8 Billion km',
+    speedKmS: '13.8 km/s',
+    status: 'Active · Deep Kuiper Belt Recon',
+    hostPlanetId: 'pluto',
+    orbitOffset: 6.2,
+    summaryEn:
+      'Captured the first close-up images of Pluto’s nitrogen-ice heart (Sputnik Planitia) in 2015 and the primordial contact-binary Arrokoth (Ultima Thule) in 2019.',
+    summaryHi:
+      'प्लूटो के बर्फीले दिल (Sputnik Planitia) और कुइपर बेल्ट के प्राचीन पिंड अरोकोथ (Arrokoth) की पहली नज़दीकी तस्वीरें लेने वाला यान।',
   },
 ];
+
+export interface DeepSpaceGalaxyObject {
+  id: string;
+  name: string;
+  hindiName: string;
+  category: 'galaxy' | 'nebula' | 'star_system' | 'supercluster' | 'cosmic_horizon';
+  subtitle: string;
+  distanceLightYears: string;
+  diameterLightYears: string;
+  starsOrMass: string;
+  position3D: [number, number, number];
+  scale3D: number;
+  color: string;
+  secondaryColor: string;
+  descriptionEn: string;
+  descriptionHi: string;
+  funFact: string;
+}
+
+export const DEEP_SPACE_GALAXIES: DeepSpaceGalaxyObject[] = [
+  {
+    id: 'proxima-centauri',
+    name: 'Alpha & Proxima Centauri System',
+    hindiName: 'अल्फा और प्रॉक्सिमा सेंटॉरी (सबसे निकटतम तारा मंडल)',
+    category: 'star_system',
+    subtitle: 'Nearest Extrasolar Star System & Proxima b Exoplanet',
+    distanceLightYears: '4.24 Light-Years (40 Trillion km)',
+    diameterLightYears: '0.2 Light-Years (Triple Star Orbit)',
+    starsOrMass: '3 Stars (Alpha Centauri A, B & Red Dwarf Proxima)',
+    position3D: [560, 45, -320],
+    scale3D: 28,
+    color: '#fbbf24',
+    secondaryColor: '#f87171',
+    descriptionEn:
+      'Our Solar System’s closest stellar neighbor! Proxima Centauri hosts Proxima Centauri b, an Earth-mass rocky exoplanet orbiting within its habitable liquid-water zone.',
+    descriptionHi:
+      'सूर्य के बाद पृथ्वी का सबसे नज़दीकी तारा मंडल (4.24 प्रकाश वर्ष दूर)। इसके लाल बौने तारे प्रॉक्सिमा सेंटॉरी की परिक्रमा पृथ्वी के आकार का ग्रह Proxima b करता है।',
+    funFact: 'Even at Voyager-1’s speed (61,200 km/h), it would take 73,000 years to reach Proxima Centauri.',
+  },
+  {
+    id: 'trappist-1',
+    name: 'TRAPPIST-1 Seven-World Exoplanet System',
+    hindiName: 'ट्रैपिस्ट-1 (7 पृथ्वी जैसे ग्रहों वाला तारा मंडल)',
+    category: 'star_system',
+    subtitle: 'Ultra-Cool Dwarf Star with 7 Rocky Earth-Sized Planets',
+    distanceLightYears: '39.46 Light-Years (Constellation Aquarius)',
+    diameterLightYears: '0.06 AU Compact Planetary System',
+    starsOrMass: '1 Star + 7 Terrestrial Planets (3 in Habitable Zone)',
+    position3D: [-640, -60, 380],
+    scale3D: 30,
+    color: '#f97316',
+    secondaryColor: '#38bdf8',
+    descriptionEn:
+      'Actively studied by the James Webb Space Telescope, TRAPPIST-1 holds seven rocky Earth-sized planets packed closer to their star than Mercury is to our Sun, with TRAPPIST-1e, f, and g in the habitable zone.',
+    descriptionHi:
+      'जेम्स वेब टेलीस्कोप का प्रमुख लक्ष्य! इस एक तारे के चारों ओर पृथ्वी के आकार के 7 चट्टानी ग्रह घूमते हैं, जिनमें से 3 ग्रहों पर तरल पानी और जीवन होने की प्रबल संभावना है।',
+    funFact: 'Standing on any TRAPPIST-1 planet, the neighboring planets would appear larger than our Moon in the sky.',
+  },
+  {
+    id: 'orion-nebula-m42',
+    name: 'Orion Nebula (M42) & Pillars of Creation (M16)',
+    hindiName: 'ओरायन नेबुला (M42) और सृजन के स्तंभ (तारा जन्मभूमि)',
+    category: 'nebula',
+    subtitle: 'Glowing Hydrogen Ionization Cloud & Protoplanetary Nursery',
+    distanceLightYears: '1,344 – 6,500 Light-Years',
+    diameterLightYears: '24 – 70 Light-Years Across',
+    starsOrMass: '2,800+ Newborn Protostars & Solar Systems',
+    position3D: [820, 140, 520],
+    scale3D: 68,
+    color: '#ec4899',
+    secondaryColor: '#38bdf8',
+    descriptionEn:
+      'Colossal pillars of interstellar hydrogen gas and cosmic dust sculpted by ultraviolet radiation from newborn massive stars. JWST’s near-infrared cameras revealed hundreds of crimson baby stars igniting inside the dust columns.',
+    descriptionHi:
+      'गैस और धूल के विशालकाय ब्रह्मांडीय बादल जहाँ हर क्षण नए तारों और नए सौर मंडलों का जन्म हो रहा है। जेम्स वेब टेलीस्कोप ने इसके अंदर सैकड़ों नवजात तारों की तस्वीरें ली हैं।',
+    funFact: 'Each finger-like spire at the top of the Pillars of Creation is larger than our entire Solar System.',
+  },
+  {
+    id: 'milky-way-galaxy',
+    name: 'Milky Way Galaxy (Mandakini Spiral Disk)',
+    hindiName: 'मंदाकिनी / मिल्की वे आकाशगंगा (हमारी अपनी आकाशगंगा)',
+    category: 'galaxy',
+    subtitle: 'Barred Spiral Galaxy (SBbc) · Orion-Cygnus Arm Home',
+    distanceLightYears: '26,670 Light-Years to Galactic Center (Sagittarius A*)',
+    diameterLightYears: '105,700 Light-Years Across',
+    starsOrMass: '100 – 400 Billion Stars · 1.5 Trillion Solar Masses',
+    position3D: [-420, -180, -520],
+    scale3D: 145,
+    color: '#60a5fa',
+    secondaryColor: '#fbbf24',
+    descriptionEn:
+      'Our cosmic home is a majestic barred spiral galaxy with four primary spiral arms (Perseus, Scutum-Centaurus, Sagittarius, and Normandy) plus the Orion Spur where our Sun orbits once every 230 million years.',
+    descriptionHi:
+      'हमारी अपनी सर्पिल (Barred Spiral) आकाशगंगा जिसमें 100 से 400 अरब तारे हैं। हमारा सौर मंडल इसके केंद्र (Sagittarius A*) से 26,670 प्रकाश वर्ष दूर ओरायन भुजा में स्थित है।',
+    funFact: 'Our Solar System travels through the Milky Way at 828,000 km/h, taking 230 million years for one galactic lap.',
+  },
+  {
+    id: 'magellanic-clouds',
+    name: 'Large & Small Magellanic Clouds (LMC / SMC)',
+    hindiName: 'लार्ज और स्मॉल मैगेलैनिक क्लाउड्स (उपग्रह आकाशगंगाएं)',
+    category: 'galaxy',
+    subtitle: 'Dwarf Satellite Galaxies Orbiting the Milky Way + Tarantula Nebula',
+    distanceLightYears: '163,000 & 200,000 Light-Years',
+    diameterLightYears: '14,000 & 7,000 Light-Years',
+    starsOrMass: '30 Billion + 3 Billion Stars',
+    position3D: [1050, -240, -680],
+    scale3D: 75,
+    color: '#38bdf8',
+    secondaryColor: '#a855f7',
+    descriptionEn:
+      'Two irregular dwarf galaxies gravitationally bound to the Milky Way and visible to the naked eye from the Southern Hemisphere. Home to the Tarantula Nebula (30 Doradus), the most active starburst region in the Local Group.',
+    descriptionHi:
+      'हमारी मिल्की वे आकाशगंगा की परिक्रमा करने वाली दो सबसे प्रमुख पड़ोसी बौनी आकाशगंगाएं। वर्ष 1987 का प्रसिद्ध सुपरनोवा (SN 1987A) यहीं देखा गया था।',
+    funFact: 'The Magellanic Stream of hydrogen gas connects these two galaxies directly to the Milky Way halo.',
+  },
+  {
+    id: 'andromeda-m31',
+    name: 'Andromeda Galaxy (Messier 31 / M31)',
+    hindiName: 'एंड्रोमेडा / देवयानी आकाशगंगा (M31 — सबसे बड़ी पड़ोसी आकाशगंगा)',
+    category: 'galaxy',
+    subtitle: 'Largest Spiral Galaxy of the Local Group (Approaching at 110 km/s)',
+    distanceLightYears: '2.537 Million Light-Years',
+    diameterLightYears: '152,000 Light-Years (1.5× Milky Way)',
+    starsOrMass: '~1 Trillion Stars · Double Nucleus Supermassive Core',
+    position3D: [1480, 260, -980],
+    scale3D: 175,
+    color: '#818cf8',
+    secondaryColor: '#fde68a',
+    descriptionEn:
+      'The titan of our Local Group containing roughly 1 trillion stars. Andromeda is hurtling toward the Milky Way at 110 km/s (400,000 km/h) and will merge with our galaxy in ~4.5 billion years to form "Milkomeda".',
+    descriptionHi:
+      'हमारी मिल्की वे के सबसे पास स्थित विशाल सर्पिल आकाशगंगा, जिसमें लगभग 1 ट्रिलियन (1 लाख करोड़) तारे हैं! यह 110 किमी/सेकंड की रफ्तार से हमारी ओर बढ़ रही है।',
+    funFact: 'Andromeda is the farthest object in the universe visible to the unaided human eye on a dark night.',
+  },
+  {
+    id: 'triangulum-m33',
+    name: 'Triangulum Galaxy (Messier 33 / M33)',
+    hindiName: 'त्रिकोण आकाशगंगा (Triangulum Galaxy M33)',
+    category: 'galaxy',
+    subtitle: 'Third-Largest Spiral Galaxy of the Local Group',
+    distanceLightYears: '2.73 Million Light-Years',
+    diameterLightYears: '61,000 Light-Years',
+    starsOrMass: '40 Billion Stars · Pure Unbarred Spiral',
+    position3D: [1680, 120, -540],
+    scale3D: 105,
+    color: '#34d399',
+    secondaryColor: '#60a5fa',
+    descriptionEn:
+      'Gravitational companion to Andromeda and the third-largest member of our Local Group. Unlike the Milky Way, Triangulum has no central bar and exhibits extraordinarily rapid star formation.',
+    descriptionHi:
+      'लोकल ग्रुप (Local Group) की तीसरी सबसे बड़ी सर्पिल आकाशगंगा, जो एंड्रोमेडा के करीब स्थित है और जिसमें लगभग 40 अरब तारे चमक रहे हैं।',
+    funFact: 'Contains NGC 604, a giant H II star-forming nebula 40 times larger than the Orion Nebula.',
+  },
+  {
+    id: 'whirlpool-m51',
+    name: 'Whirlpool Galaxy (Messier 51 / NGC 5194)',
+    hindiName: 'भंवर आकाशगंगा (Whirlpool Galaxy M51)',
+    category: 'galaxy',
+    subtitle: 'Grand-Design Spiral Galaxy Interacting with Companion NGC 5195',
+    distanceLightYears: '23.5 Million Light-Years (Canes Venatici)',
+    diameterLightYears: '76,900 Light-Years',
+    starsOrMass: '100 Billion Stars · Twin Spiral Arms',
+    position3D: [-1550, 320, -1120],
+    scale3D: 125,
+    color: '#c084fc',
+    secondaryColor: '#38bdf8',
+    descriptionEn:
+      'The very first galaxy in history recognized to have a spiral structure (1845). Tidal gravitational pull from its golden dwarf companion NGC 5195 compresses hydrogen lanes into pink star-forming knots.',
+    descriptionHi:
+      'इतिहास की पहली ऐसी आकाशगंगा जिसकी सर्पिल (Spiral) भुजाओं की पहचान की गई थी। इसके सिरे पर एक छोटी सुनहरी साथी आकाशगंगा इसके साथ जुड़ी हुई है।',
+    funFact: 'JWST MIRI + NIRCam portraits of M51 revealed intricate cosmic dust webs along its spiral arms.',
+  },
+  {
+    id: 'sombrero-m104',
+    name: 'Sombrero Galaxy (Messier 104 / M104)',
+    hindiName: 'सोम्ब्रेरो आकाशगंगा (M104 — धूल की अंगूठी वाली आकाशगंगा)',
+    category: 'galaxy',
+    subtitle: 'Edge-On Spiral/Elliptical Hybrid with 1-Billion-M☉ Black Hole',
+    distanceLightYears: '29.35 Million Light-Years (Virgo Border)',
+    diameterLightYears: '49,000 Light-Years',
+    starsOrMass: '100 Billion Stars + 2,000 Globular Clusters',
+    position3D: [-1380, -340, 1180],
+    scale3D: 115,
+    color: '#fbbf24',
+    secondaryColor: '#f43f5e',
+    descriptionEn:
+      'Famous for its brilliant white bulbous core encircled by a razor-sharp symmetric dust ring. JWST mid-infrared observations in 2024–2025 resolved clumpy polycyclic aromatic hydrocarbons in its outer ring and a glowing central supermassive black hole.',
+    descriptionHi:
+      'अपने बेहद चमकीले केंद्र और चारों ओर सममित धूल की अंगूठी (Symmetric Dust Ring) के लिए प्रसिद्ध आकाशगंगा, जिसके केंद्र में 1 अरब सौर द्रव्यमान का ब्लैक होल है।',
+    funFact: 'Nearly 2,000 globular star clusters orbit inside Sombrero’s halo—10 times more than orbit the Milky Way.',
+  },
+  {
+    id: 'm87-virgo',
+    name: 'Messier 87 (M87*) Supergiant Galaxy & Relativistic Jet',
+    hindiName: 'मेसियर 87 (M87* — महाविशाल आकाशगंगा और 5,000 प्रकाश-वर्ष जेट)',
+    category: 'galaxy',
+    subtitle: 'Central Dominant Galaxy of the Virgo Cluster · 6.5B M☉ Black Hole',
+    distanceLightYears: '53.5 Million Light-Years (Virgo Cluster Center)',
+    diameterLightYears: '132,000 Light-Years (Supergiant Elliptical)',
+    starsOrMass: '2.7 Trillion Solar Masses · 12,000 Globular Clusters',
+    position3D: [1850, -310, 1250],
+    scale3D: 140,
+    color: '#f59e0b',
+    secondaryColor: '#38bdf8',
+    descriptionEn:
+      'Ruler of the Virgo Cluster containing trillions of stars and the first black hole ever directly imaged by humanity (EHT, 2019). Its central 6.5-billion-solar-mass black hole launches a magnetized plasma jet 5,000 light-years into intergalactic space.',
+    descriptionHi:
+      'वर्गो क्लस्टर (Virgo Cluster) के केंद्र में स्थित दानवाकार अंडाकार आकाशगंगा। इसी के केंद्र में स्थित M87* ब्लैक होल की मानव इतिहास में पहली बार असली तस्वीर (EHT द्वारा) ली गई थी।',
+    funFact: 'M87’s central black hole is so wide (38 billion km) that our entire Solar System out to Pluto would fit inside its shadow.',
+  },
+  {
+    id: 'laniakea-supercluster',
+    name: 'Laniakea Supercluster & The Great Attractor',
+    hindiName: 'लानियाकिया महासमूह और द ग्रेट अट्रैक्टर (1,00,000 आकाशगंगाओं का जाल)',
+    category: 'supercluster',
+    subtitle: 'Our Cosmic Web Filament Home Spanning 100,000 Galaxies',
+    distanceLightYears: '150 – 250 Million Light-Years (Norma Gravitational Core)',
+    diameterLightYears: '520 Million Light-Years Across',
+    starsOrMass: '100,000+ Galaxies · 10¹⁷ Solar Masses (100,000× Milky Way)',
+    position3D: [0, 620, -2100],
+    scale3D: 260,
+    color: '#38bdf8',
+    secondaryColor: '#f59e0b',
+    descriptionEn:
+      'Discovered in 2014 by mapping cosmic galaxy flows, Laniakea ("Immeasurable Heaven") is the gigantic supercluster filament containing the Milky Way, Local Group, and Virgo Cluster, all flowing like rivers of light toward the Great Attractor.',
+    descriptionHi:
+      'मिल्की वे और एंड्रोमेडा सहित 1,00,000 से अधिक आकाशगंगाओं का विशाल ब्रह्मांडीय महासमूह! इसकी सभी आकाशगंगाएं गुरुत्वाकर्षण की नदी की तरह "द ग्रेट अट्रैक्टर" केंद्र की ओर बह रही हैं।',
+    funFact: 'Beyond Laniakea lie neighboring cosmic web titans: the Perseus-Pisces, Shapley, and Hercules-Corona Borealis Superclusters.',
+  },
+  {
+    id: 'jades-cmb-horizon',
+    name: 'JADES-GS-z14-0 (JWST Farthest Galaxy) & CMB Observable Universe Edge',
+    hindiName: 'JADES-GS-z14-0 (सबसे दूरस्थ आकाशगंगा) और दृश्य ब्रह्मांड की अंतिम सीमा (CMB)',
+    category: 'cosmic_horizon',
+    subtitle: 'Redshift z = 14.32 (290M Years After Big Bang) & 46.5B LY Horizon',
+    distanceLightYears: '13.5 Billion Years Lookback · 46.5 Billion LY Comoving Radius',
+    diameterLightYears: '93 Billion Light-Years (Full Observable Sphere)',
+    starsOrMass: '2 Trillion Galaxies · 2.725 K Cosmic Microwave Background',
+    position3D: [-2100, 480, 1850],
+    scale3D: 310,
+    color: '#ef4444',
+    secondaryColor: '#a855f7',
+    descriptionEn:
+      'The ultimate frontier of human scientific observation! Confirmed by JWST NIRSpec at redshift z = 14.32, JADES-GS-z14-0 shines from just 290 million years after the Big Bang, framed against the Cosmic Microwave Background (CMB)—the relic afterglow of creation.',
+    descriptionHi:
+      'मानव विज्ञान द्वारा अब तक देखी गई ब्रह्मांड की सबसे अंतिम सीमा! जेम्स वेब टेलीस्कोप द्वारा खोजी गई JADES-GS-z14-0 आकाशगंगा बिग बैंग के मात्र 29 करोड़ साल बाद की है, और इसके पीछे 93 अरब प्रकाश-वर्ष चौड़े दृश्य ब्रह्मांड की अंतिम दीवार (CMB) है।',
+    funFact: 'Due to the expansion of space since the Big Bang, the edge of the observable universe now sits 46.5 billion light-years away in every direction.',
+  },
+];
+
 

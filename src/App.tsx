@@ -10,6 +10,9 @@ import {
 import {
   SOLAR_SYSTEM_DATA,
   SPACE_PROBES,
+  DEEP_SPACE_GALAXIES,
+  DeepSpaceGalaxyObject,
+  SpaceProbeInfo,
   PlanetData,
 } from './data/solarSystemData';
 import {
@@ -159,6 +162,9 @@ export default function App() {
   const [showUpdateModal, setShowUpdateModal] = useState<boolean>(false);
   const [showTouchPad, setShowTouchPad] = useState<boolean>(false);
   const [playingPlanetAudioId, setPlayingPlanetAudioId] = useState<string | null>(null);
+  const [carouselCategory, setCarouselCategory] = useState<'planets' | 'galaxies' | 'probes'>('planets');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
 
   const t = getUIStrings(langCode);
   const currentLangObj =
@@ -241,6 +247,16 @@ export default function App() {
         ? SOLAR_SYSTEM_DATA.find((p) => p.id === focusPlanetId) || null
         : null;
 
+  const focusedProbeData: SpaceProbeInfo | null =
+    focusPlanetId && !focusedPlanetData
+      ? SPACE_PROBES.find((prb) => prb.id === focusPlanetId) || null
+      : null;
+
+  const focusedGalaxyData: DeepSpaceGalaxyObject | null =
+    focusPlanetId && !focusedPlanetData && !focusedProbeData
+      ? DEEP_SPACE_GALAXIES.find((g) => g.id === focusPlanetId) || null
+      : null;
+
   const activeAudioProfile = focusedPlanetData
     ? PLANET_AUDIO_PROFILES[focusedPlanetData.id === 'blackhole' ? 'sagittarius-a' : focusedPlanetData.id] ||
       PLANET_AUDIO_PROFILES.sun
@@ -259,6 +275,73 @@ export default function App() {
     : [];
 
   const currentQuiz = COSMIC_KNOWLEDGE_QUIZ[quizIndex] || COSMIC_KNOWLEDGE_QUIZ[0];
+
+  // Universal Search Index across Planets, Black Hole, Galaxies & All Spacecrafts
+  const allSearchableItems = React.useMemo(() => {
+    const items: {
+      id: string;
+      title: string;
+      subtitle: string;
+      badge: string;
+      color: string;
+      keywords: string;
+    }[] = [];
+
+    SOLAR_SYSTEM_DATA.forEach((p) => {
+      items.push({
+        id: p.id,
+        title: `${p.hindiName} (${p.name})`,
+        subtitle: `${p.type} · ${p.distanceFromSunKm}`,
+        badge: isHindi ? '🪐 ग्रह / सूर्य' : '🪐 Planet',
+        color: p.color,
+        keywords: `${p.id} ${p.name} ${p.hindiName} ${p.subtitle} ${p.type} planet grah`.toLowerCase(),
+      });
+    });
+
+    items.push({
+      id: 'blackhole',
+      title: 'सैजिटेरियस A* ब्लैक होल (Sagittarius A* Black Hole)',
+      subtitle: '4.3 Million Solar Masses · 26,670 Light-Years',
+      badge: isHindi ? '🕳️ ब्लैक होल' : '🕳️ Black Hole',
+      color: '#f59e0b',
+      keywords: 'black hole sagittarius a* gargantua m87 event horizon ब्लैक होल सैजिटेरियस काला विवर',
+    });
+
+    DEEP_SPACE_GALAXIES.forEach((g) => {
+      items.push({
+        id: g.id,
+        title: `${g.hindiName} (${g.name})`,
+        subtitle: `${g.distanceLightYears} · ${g.starsOrMass}`,
+        badge: isHindi ? '🌌 आकाशगंगा / ब्रह्मांड' : '🌌 Galaxy / Cosmos',
+        color: g.color,
+        keywords: `${g.id} ${g.name} ${g.hindiName} ${g.subtitle} ${g.category} galaxy nebula supercluster cmb milky way andromeda आकाशगंगा मिल्की वे देवयानी`.toLowerCase(),
+      });
+    });
+
+    SPACE_PROBES.forEach((prb) => {
+      items.push({
+        id: prb.id,
+        title: `${prb.hindiName} (${prb.name})`,
+        subtitle: `${prb.agency} · ${prb.distanceFromEarth} · ${prb.speedKmS}`,
+        badge: isHindi ? '🛰️ अंतरिक्ष यान / विमान' : '🛰️ Spacecraft',
+        color: '#38bdf8',
+        keywords: `${prb.id} ${prb.name} ${prb.hindiName} ${prb.agency} ${prb.currentLocationEn} ${prb.currentLocationHi} viman spacecraft probe isro nasa यान विमान`.toLowerCase(),
+      });
+    });
+
+    return items;
+  }, [isHindi]);
+
+  const filteredSearchItems = React.useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allSearchableItems.slice(0, 14);
+    return allSearchableItems.filter(
+      (it) =>
+        it.keywords.includes(q) ||
+        it.title.toLowerCase().includes(q) ||
+        it.subtitle.toLowerCase().includes(q)
+    );
+  }, [allSearchableItems, searchQuery]);
 
   return (
     <div
@@ -329,90 +412,169 @@ export default function App() {
           NATIVE ANDROID APP HUD OVERLAY
          ===================================================================== */}
       <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between">
-        {/* TOP FLOATING ANDROID STATUS PILLS (Minimal, Clean, Zero Website Look) */}
-        <div className="flex items-center justify-between gap-2 px-3 pt-2.5 sm:px-5 sm:pt-3.5">
-          {/* Top-Left: Orbital Time-Speed Scrubber Pill */}
-          <div className="pointer-events-auto flex items-center gap-1 bg-[#080f22]/90 border border-slate-800 rounded-full px-2 py-1 shadow-lg">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 ml-1" />
-            <span className="text-[10px] font-mono text-slate-300 mr-1 hidden sm:inline">
-              ORBIT
-            </span>
-            {[
-              { label: '0×', val: 0 },
-              { label: '1×', val: 1 },
-              { label: '3×', val: 3 },
-            ].map((spd) => (
+        {/* TOP FLOATING ANDROID STATUS PILLS + UNIVERSAL COSMIC SEARCH BAR */}
+        <div className="flex flex-col gap-2 px-3 pt-2.5 sm:px-5 sm:pt-3.5">
+          <div className="flex items-center justify-between gap-2">
+            {/* Top-Left: Orbital Time-Speed Scrubber Pill */}
+            <div className="pointer-events-auto flex items-center gap-1 bg-[#080f22]/90 border border-slate-800 rounded-full px-2 py-1 shadow-lg">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 ml-1" />
+              <span className="text-[10px] font-mono text-slate-300 mr-1 hidden sm:inline">
+                ORBIT
+              </span>
+              {[
+                { label: '0×', val: 0 },
+                { label: '1×', val: 1 },
+                { label: '3×', val: 3 },
+              ].map((spd) => (
+                <button
+                  key={spd.val}
+                  onClick={() => {
+                    triggerAndroidHaptic(8);
+                    setTimeScale(spd.val);
+                  }}
+                  className={`px-2.5 py-1 rounded-full font-mono text-[11px] cursor-pointer transition ${
+                    timeScale === spd.val
+                      ? 'bg-amber-400 text-slate-950 font-bold'
+                      : 'text-slate-300'
+                  }`}
+                >
+                  {spd.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Top-Right: Camera View, 3D Labels, Language & 300MB Pack Badge */}
+            <div className="pointer-events-auto flex items-center gap-1.5 bg-[#080f22]/90 border border-slate-800 rounded-full px-2.5 py-1 shadow-lg text-xs">
               <button
-                key={spd.val}
                 onClick={() => {
-                  triggerAndroidHaptic(8);
-                  setTimeScale(spd.val);
+                  triggerAndroidHaptic(10);
+                  setShow3DLabels((p) => !p);
                 }}
-                className={`px-2.5 py-1 rounded-full font-mono text-[11px] cursor-pointer transition ${
-                  timeScale === spd.val
-                    ? 'bg-amber-400 text-slate-950 font-bold'
-                    : 'text-slate-300'
+                className={`px-2 py-1 rounded-full font-mono text-[10px] cursor-pointer ${
+                  show3DLabels
+                    ? 'bg-sky-500/25 text-sky-200 border border-sky-400/50'
+                    : 'text-slate-400'
                 }`}
               >
-                {spd.label}
+                {show3DLabels ? 'NAMES ON' : 'NAMES OFF'}
               </button>
-            ))}
+
+              <button
+                onClick={() => {
+                  triggerAndroidHaptic(10);
+                  setFocusPlanetId(null);
+                  setCameraMode((prev) =>
+                    prev === 'overview' ? 'chase' : 'overview'
+                  );
+                }}
+                className="px-2.5 py-1 rounded-full bg-[#111e3d] text-amber-300 font-mono text-[10px] cursor-pointer"
+              >
+                {cameraMode === 'overview' ? '3D MAP' : 'SHIP CAM'}
+              </button>
+
+              <select
+                value={langCode}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                className="bg-transparent text-white font-medium text-[11px] focus:outline-none cursor-pointer max-w-[88px] truncate"
+              >
+                {SUPPORTED_LANGUAGES.map((l) => (
+                  <option
+                    key={l.code}
+                    value={l.code}
+                    className="bg-[#080f20] text-white"
+                  >
+                    {l.nativeName}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={() => {
+                  triggerAndroidHaptic(10);
+                  setShowUpdateModal(true);
+                }}
+                className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-mono text-[10px] cursor-pointer"
+              >
+                300MB
+              </button>
+            </div>
           </div>
 
-          {/* Top-Right: Camera View, 3D Labels, Language & 300MB Pack Badge */}
-          <div className="pointer-events-auto flex items-center gap-1.5 bg-[#080f22]/90 border border-slate-800 rounded-full px-2.5 py-1 shadow-lg text-xs">
-            <button
-              onClick={() => {
-                triggerAndroidHaptic(10);
-                setShow3DLabels((p) => !p);
-              }}
-              className={`px-2 py-1 rounded-full font-mono text-[10px] cursor-pointer ${
-                show3DLabels
-                  ? 'bg-sky-500/25 text-sky-200 border border-sky-400/50'
-                  : 'text-slate-400'
-              }`}
-            >
-              {show3DLabels ? 'NAMES ON' : 'NAMES OFF'}
-            </button>
-
-            <button
-              onClick={() => {
-                triggerAndroidHaptic(10);
-                setFocusPlanetId(null);
-                setCameraMode((prev) =>
-                  prev === 'overview' ? 'chase' : 'overview'
-                );
-              }}
-              className="px-2.5 py-1 rounded-full bg-[#111e3d] text-amber-300 font-mono text-[10px] cursor-pointer"
-            >
-              {cameraMode === 'overview' ? '3D MAP' : 'SHIP CAM'}
-            </button>
-
-            <select
-              value={langCode}
-              onChange={(e) => handleLanguageChange(e.target.value)}
-              className="bg-transparent text-white font-medium text-[11px] focus:outline-none cursor-pointer max-w-[88px] truncate"
-            >
-              {SUPPORTED_LANGUAGES.map((l) => (
-                <option
-                  key={l.code}
-                  value={l.code}
-                  className="bg-[#080f20] text-white"
+          {/* UNIVERSAL COSMIC SEARCH BAR (Planets, Galaxies, Spacecrafts / Vimans, Black Holes) */}
+          <div className="pointer-events-auto relative max-w-xl w-full mx-auto">
+            <div className="flex items-center gap-2 bg-[#070e22]/95 border border-slate-700/90 focus-within:border-amber-400 rounded-full px-3.5 py-1.5 shadow-xl">
+              <span className="text-amber-400 text-xs">🔍</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onFocus={() => setIsSearchOpen(true)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsSearchOpen(true);
+                }}
+                placeholder={
+                  isHindi
+                    ? 'किसी भी ग्रह, आकाशगंगा (Andromeda/Milky Way) या विमान (Voyager/चंद्रयान) को खोजें...'
+                    : 'Search any Planet, Galaxy (Andromeda/Milky Way), Black Hole or Spacecraft...'
+                }
+                className="w-full bg-transparent text-xs text-white placeholder-slate-400 focus:outline-none"
+              />
+              {(searchQuery || isSearchOpen) && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setIsSearchOpen(false);
+                  }}
+                  className="text-xs text-slate-400 hover:text-white px-1.5 cursor-pointer"
                 >
-                  {l.nativeName}
-                </option>
-              ))}
-            </select>
+                  ✕
+                </button>
+              )}
+            </div>
 
-            <button
-              onClick={() => {
-                triggerAndroidHaptic(10);
-                setShowUpdateModal(true);
-              }}
-              className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-mono text-[10px] cursor-pointer"
-            >
-              300MB
-            </button>
+            {/* Instant Search Results Dropdown */}
+            {isSearchOpen && (
+              <div className="absolute left-0 right-0 mt-1.5 max-h-72 overflow-y-auto rounded-2xl bg-[#070e22]/98 border border-slate-700 shadow-2xl p-2 space-y-1 z-50">
+                <div className="flex items-center justify-between px-2 py-1 text-[10px] font-mono text-slate-400">
+                  <span>
+                    {isHindi
+                      ? `${filteredSearchItems.length} ब्रह्मांडीय पिंड और विमान मिले — टैप करके 3D में जाएं`
+                      : `${filteredSearchItems.length} Cosmic Objects & Spacecraft — Tap to Warp in 3D`}
+                  </span>
+                  <span className="text-amber-300">
+                    {isHindi ? '2-उंगली से ज़ूम/पैन करें' : '2-Finger Pinch & Pan'}
+                  </span>
+                </div>
+                {filteredSearchItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setIsSearchOpen(false);
+                      handleSelectPlanetInScope(item.id);
+                    }}
+                    className="w-full flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#0c162e] hover:bg-[#132347] border border-slate-800 text-left transition cursor-pointer"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-xs font-bold text-white truncate">
+                          {item.title}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                        {item.subtitle}
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 font-mono text-[10px] shrink-0">
+                      {item.badge}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -630,6 +792,126 @@ export default function App() {
           </div>
         )}
 
+        {/* =================================================================
+            DEEP-SPACE GALAXY / NEBULA / SUPERCLUSTER / CMB 3D INSPECTOR SHEET
+           ================================================================= */}
+        {activeNavTab === 'scope' && focusedGalaxyData && (
+          <div className="pointer-events-auto mt-auto lg:my-auto lg:ml-auto lg:mr-4 w-full lg:max-w-md bg-[#070d1e]/96 border-t lg:border border-purple-500/50 rounded-t-3xl lg:rounded-2xl p-4 shadow-2xl text-white max-h-[46vh] lg:max-h-[68vh] flex flex-col">
+            <div className="w-10 h-1 rounded-full bg-slate-600 mx-auto mb-2 lg:hidden shrink-0" />
+            <div className="flex items-start justify-between gap-2 pb-2 border-b border-slate-800 shrink-0">
+              <div>
+                <div className="text-[10px] font-mono text-amber-400 uppercase">
+                  🌌 {focusedGalaxyData.subtitle}
+                </div>
+                <h2 className="font-display text-base sm:text-lg font-bold text-white">
+                  {isHindi ? focusedGalaxyData.hindiName : focusedGalaxyData.name}
+                </h2>
+              </div>
+              <button
+                onClick={() => setFocusPlanetId(null)}
+                className="px-3 py-1 rounded-full bg-slate-800 text-xs font-mono text-amber-300 cursor-pointer shrink-0"
+              >
+                ✕ {isHindi ? 'वापस' : 'Back'}
+              </button>
+            </div>
+
+            <div className="overflow-y-auto space-y-2 pr-1 mt-2 text-xs">
+              <p className="text-slate-200 leading-relaxed bg-[#0c162e] border border-slate-800 rounded-xl p-2.5">
+                {isHindi ? focusedGalaxyData.descriptionHi : focusedGalaxyData.descriptionEn}
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 font-mono">
+                <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
+                  <div className="text-[10px] text-slate-400">
+                    {isHindi ? 'पृथ्वी से दूरी (Distance)' : 'Distance from Earth'}
+                  </div>
+                  <div className="text-amber-300 font-semibold">
+                    {focusedGalaxyData.distanceLightYears}
+                  </div>
+                </div>
+                <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
+                  <div className="text-[10px] text-slate-400">
+                    {isHindi ? 'आकार / व्यास (Diameter)' : 'Diameter / Scale'}
+                  </div>
+                  <div className="text-sky-300 font-semibold">
+                    {focusedGalaxyData.diameterLightYears}
+                  </div>
+                </div>
+                <div className="col-span-2 bg-[#0b1326] border border-slate-800 rounded-lg p-2">
+                  <div className="text-[10px] text-slate-400">
+                    {isHindi ? 'तारे और कुल द्रव्यमान (Stars & Mass)' : 'Stars & Total Mass'}
+                  </div>
+                  <div className="text-emerald-300 font-semibold">
+                    {focusedGalaxyData.starsOrMass}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-[#0c162e] border border-slate-800 rounded-xl p-2.5 text-slate-300">
+                <span className="text-amber-400 font-bold">★ Fact: </span>
+                {focusedGalaxyData.funFact}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================
+            HISTORIC & ACTIVE SPACECRAFT / VIMAN 3D INSPECTOR SHEET
+           ================================================================= */}
+        {activeNavTab === 'scope' && focusedProbeData && (
+          <div className="pointer-events-auto mt-auto lg:my-auto lg:ml-auto lg:mr-4 w-full lg:max-w-md bg-[#070d1e]/96 border-t lg:border border-sky-500/50 rounded-t-3xl lg:rounded-2xl p-4 shadow-2xl text-white max-h-[46vh] lg:max-h-[68vh] flex flex-col">
+            <div className="w-10 h-1 rounded-full bg-slate-600 mx-auto mb-2 lg:hidden shrink-0" />
+            <div className="flex items-start justify-between gap-2 pb-2 border-b border-slate-800 shrink-0">
+              <div>
+                <div className="text-[10px] font-mono text-sky-400 uppercase">
+                  🛰️ {focusedProbeData.agency} · LAUNCHED {focusedProbeData.launchYear} · {focusedProbeData.status}
+                </div>
+                <h2 className="font-display text-base sm:text-lg font-bold text-white">
+                  {isHindi ? focusedProbeData.hindiName : focusedProbeData.name}
+                </h2>
+              </div>
+              <button
+                onClick={() => setFocusPlanetId(null)}
+                className="px-3 py-1 rounded-full bg-slate-800 text-xs font-mono text-amber-300 cursor-pointer shrink-0"
+              >
+                ✕ {isHindi ? 'वापस' : 'Back'}
+              </button>
+            </div>
+
+            <div className="overflow-y-auto space-y-2 pr-1 mt-2 text-xs">
+              <div className="bg-[#0e1d3a] border border-sky-500/40 rounded-xl p-2.5">
+                <div className="text-[10px] font-mono text-amber-300">
+                  📍 {isHindi ? 'अभी अंतरिक्ष में कहाँ है (Current Location):' : 'Current Location in Space:'}
+                </div>
+                <div className="text-white font-bold mt-0.5">
+                  {isHindi ? focusedProbeData.currentLocationHi : focusedProbeData.currentLocationEn}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 font-mono">
+                <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
+                  <div className="text-[10px] text-slate-400">
+                    {isHindi ? 'पृथ्वी से दूरी' : 'Distance from Earth'}
+                  </div>
+                  <div className="text-amber-300 font-semibold">
+                    {focusedProbeData.distanceFromEarth}
+                  </div>
+                </div>
+                <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
+                  <div className="text-[10px] text-slate-400">
+                    {isHindi ? 'रफ्तार (Velocity)' : 'Orbital Velocity'}
+                  </div>
+                  <div className="text-emerald-300 font-semibold">
+                    {focusedProbeData.speedKmS}
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-slate-200 leading-relaxed bg-[#0c162e] border border-slate-800 rounded-xl p-2.5">
+                {isHindi ? focusedProbeData.summaryHi : focusedProbeData.summaryEn}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Optional Spacecraft Flight Stick */}
         {showTouchPad &&
           activeNavTab === 'scope' &&
@@ -645,44 +927,132 @@ export default function App() {
           )}
 
         {/* =================================================================
-            BOTTOM DOCK: PLANET CAROUSEL + NATIVE ANDROID 4-TAB NAVIGATION BAR
+            BOTTOM DOCK: 3-CATEGORY CAROUSEL (PLANETS / GALAXIES / SPACECRAFTS)
+            + NATIVE ANDROID 4-TAB NAVIGATION BAR
            ================================================================= */}
         <div className="pointer-events-auto mt-auto flex flex-col">
-          {/* Horizontal Thumb-Friendly Planet & Black Hole Carousel */}
           {activeNavTab === 'scope' && (
-            <div className="flex items-center gap-1.5 overflow-x-auto px-3 py-2 bg-gradient-to-t from-[#050914] via-[#050914]/90 to-transparent">
-              {SOLAR_SYSTEM_DATA.map((planet) => {
-                const isSelected = focusPlanetId === planet.id;
-                return (
+            <div className="bg-gradient-to-t from-[#050914] via-[#050914]/95 to-transparent pt-1">
+              {/* Category Switcher Pills: Planets vs Galaxies & Universe vs Spacecrafts/Vimans */}
+              <div className="flex items-center justify-between px-3 pb-1">
+                <div className="flex items-center gap-1.5">
                   <button
-                    key={planet.id}
-                    onClick={() => handleSelectPlanetInScope(planet.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition active:scale-95 cursor-pointer whitespace-nowrap shrink-0 ${
-                      isSelected
-                        ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold shadow-md'
-                        : 'bg-[#0b1428]/95 text-slate-200 border-slate-800'
+                    onClick={() => setCarouselCategory('planets')}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-display font-bold cursor-pointer transition ${
+                      carouselCategory === 'planets'
+                        ? 'bg-amber-400 text-slate-950'
+                        : 'bg-[#0b1428] text-slate-300 border border-slate-800'
                     }`}
                   >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: planet.color }}
-                    />
-                    <span>{getLocalizedPlanetName(planet)}</span>
+                    {isHindi ? '🪐 सौर मंडल (11)' : '🪐 Solar System (11)'}
                   </button>
-                );
-              })}
+                  <button
+                    onClick={() => setCarouselCategory('galaxies')}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-display font-bold cursor-pointer transition ${
+                      carouselCategory === 'galaxies'
+                        ? 'bg-purple-400 text-slate-950'
+                        : 'bg-[#0b1428] text-slate-300 border border-slate-800'
+                    }`}
+                  >
+                    {isHindi ? '🌌 आकाशगंगाएं व ब्रह्मांड (12)' : '🌌 Galaxies & Cosmos (12)'}
+                  </button>
+                  <button
+                    onClick={() => setCarouselCategory('probes')}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-display font-bold cursor-pointer transition ${
+                      carouselCategory === 'probes'
+                        ? 'bg-sky-400 text-slate-950'
+                        : 'bg-[#0b1428] text-slate-300 border border-slate-800'
+                    }`}
+                  >
+                    {isHindi ? '🛰️ सभी विमान / यान (12)' : '🛰️ All Spacecrafts (12)'}
+                  </button>
+                </div>
+              </div>
 
-              <button
-                onClick={() => handleSelectPlanetInScope('blackhole')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition active:scale-95 cursor-pointer whitespace-nowrap shrink-0 ${
-                  focusPlanetId === 'blackhole'
-                    ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold'
-                    : 'bg-[#170f2e]/95 text-amber-300 border-purple-500/50'
-                }`}
-              >
-                <span className="w-2.5 h-2.5 rounded-full bg-black border border-amber-400 shrink-0" />
-                <span>{isHindi ? 'ब्लैक होल (Sgr A*)' : 'Black Hole'}</span>
-              </button>
+              {/* Horizontal Thumb-Friendly Carousel */}
+              <div className="flex items-center gap-1.5 overflow-x-auto px-3 py-1.5">
+                {carouselCategory === 'planets' && (
+                  <>
+                    {SOLAR_SYSTEM_DATA.map((planet) => {
+                      const isSelected = focusPlanetId === planet.id;
+                      return (
+                        <button
+                          key={planet.id}
+                          onClick={() => handleSelectPlanetInScope(planet.id)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition active:scale-95 cursor-pointer whitespace-nowrap shrink-0 ${
+                            isSelected
+                              ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold shadow-md'
+                              : 'bg-[#0b1428]/95 text-slate-200 border-slate-800'
+                          }`}
+                        >
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: planet.color }}
+                          />
+                          <span>{getLocalizedPlanetName(planet)}</span>
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      onClick={() => handleSelectPlanetInScope('blackhole')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition active:scale-95 cursor-pointer whitespace-nowrap shrink-0 ${
+                        focusPlanetId === 'blackhole'
+                          ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold'
+                          : 'bg-[#170f2e]/95 text-amber-300 border-purple-500/50'
+                      }`}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full bg-black border border-amber-400 shrink-0" />
+                      <span>{isHindi ? 'ब्लैक होल (Sgr A*)' : 'Black Hole'}</span>
+                    </button>
+                  </>
+                )}
+
+                {carouselCategory === 'galaxies' &&
+                  DEEP_SPACE_GALAXIES.map((gal) => {
+                    const isSelected = focusPlanetId === gal.id;
+                    return (
+                      <button
+                        key={gal.id}
+                        onClick={() => handleSelectPlanetInScope(gal.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition active:scale-95 cursor-pointer whitespace-nowrap shrink-0 ${
+                          isSelected
+                            ? 'bg-purple-400 text-slate-950 border-purple-300 font-bold shadow-md'
+                            : 'bg-[#110e29]/95 text-purple-200 border-purple-500/40'
+                        }`}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: gal.color }}
+                        />
+                        <span>
+                          {isHindi ? gal.hindiName.split('(')[0].trim() : gal.name.split('(')[0].trim()}
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                {carouselCategory === 'probes' &&
+                  SPACE_PROBES.map((prb) => {
+                    const isSelected = focusPlanetId === prb.id;
+                    return (
+                      <button
+                        key={prb.id}
+                        onClick={() => handleSelectPlanetInScope(prb.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition active:scale-95 cursor-pointer whitespace-nowrap shrink-0 ${
+                          isSelected
+                            ? 'bg-sky-400 text-slate-950 border-sky-300 font-bold shadow-md'
+                            : 'bg-[#0b1930]/95 text-sky-200 border-sky-500/40'
+                        }`}
+                      >
+                        <span>🛰️</span>
+                        <span>
+                          {isHindi ? prb.hindiName.split('(')[0].trim() : prb.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+              </div>
             </div>
           )}
 
@@ -1052,24 +1422,37 @@ export default function App() {
                     key={prb.id}
                     className="p-4 rounded-xl bg-[#0c162e] border border-slate-800 flex flex-col justify-between gap-3"
                   >
-                    <div>
-                      <div className="text-[10px] font-mono text-amber-400">
-                        {prb.agency}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="text-amber-400">
+                          🛰️ {prb.agency} · {prb.launchYear}
+                        </span>
+                        <span className="text-emerald-300">{prb.status}</span>
                       </div>
-                      <div className="font-display font-bold text-sm text-white mt-0.5">
+                      <div className="font-display font-bold text-sm text-white">
                         {prb.name} —{' '}
                         <span className="text-sky-300">{prb.hindiName}</span>
                       </div>
-                      <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
+                      <div className="bg-[#081022] border border-slate-800 rounded-lg p-2 text-[11px] font-mono space-y-0.5">
+                        <div className="text-amber-300">
+                          📍 {isHindi ? prb.currentLocationHi : prb.currentLocationEn}
+                        </div>
+                        <div className="text-slate-300">
+                          🌍 {prb.distanceFromEarth} · ⚡ {prb.speedKmS}
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed">
                         {isHindi ? prb.summaryHi : prb.summaryEn}
                       </p>
                     </div>
 
                     <button
-                      onClick={() => handleSelectPlanetInScope(prb.hostPlanetId)}
-                      className="w-full py-2 rounded-lg bg-sky-400/20 border border-sky-400/50 text-sky-200 font-display font-bold text-xs cursor-pointer"
+                      onClick={() => handleSelectPlanetInScope(prb.id)}
+                      className="w-full py-2 rounded-lg bg-sky-400 text-slate-950 font-display font-bold text-xs cursor-pointer"
                     >
-                      {isHindi ? '3D कक्षा में देखें →' : 'Locate in 3D Orbit →'}
+                      {isHindi
+                        ? '🛰️ 3D अंतरिक्ष में इस विमान को देखें →'
+                        : '🛰️ Inspect Spacecraft in 3D Orbit →'}
                     </button>
                   </div>
                 ))}
