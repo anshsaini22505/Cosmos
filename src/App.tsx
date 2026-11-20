@@ -23,6 +23,11 @@ import {
   UniverseResearchArticle,
 } from './data/universeResearchData';
 import {
+  FAMOUS_STARS_CATALOG,
+  FamousStarData,
+} from './data/famousStarsData';
+import { StarComparisonVideo } from './components/StarComparisonVideo';
+import {
   SUPPORTED_LANGUAGES,
   detectInitialLanguage,
   getUIStrings,
@@ -142,9 +147,10 @@ export default function App() {
   const [telemetry, setTelemetry] = useState<HudTelemetry>(INITIAL_TELEMETRY);
   const [show3DLabels, setShow3DLabels] = useState<boolean>(true);
 
-  // Selected Planet or Black Hole in 3D Scope
+  // Selected Planet, Star, Spacecraft, Galaxy or Black Hole in 3D Scope
   const [focusPlanetId, setFocusPlanetId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<'overview' | 'core' | 'probes'>('overview');
+  const [starInspectorTab, setStarInspectorTab] = useState<'overview' | 'video' | 'compare'>('overview');
 
   // Native Android Bottom Nav Active Sheet ('scope' | 'atlas' | 'quiz')
   const [activeNavTab, setActiveNavTab] = useState<'scope' | 'atlas' | 'quiz'>('scope');
@@ -162,7 +168,7 @@ export default function App() {
   const [showUpdateModal, setShowUpdateModal] = useState<boolean>(false);
   const [showTouchPad, setShowTouchPad] = useState<boolean>(false);
   const [playingPlanetAudioId, setPlayingPlanetAudioId] = useState<string | null>(null);
-  const [carouselCategory, setCarouselCategory] = useState<'planets' | 'galaxies' | 'probes'>('planets');
+  const [carouselCategory, setCarouselCategory] = useState<'planets' | 'stars' | 'galaxies' | 'probes'>('planets');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
 
@@ -237,6 +243,7 @@ export default function App() {
       return;
     }
     setFocusPlanetId(planetId);
+    setStarInspectorTab('overview');
     canvasRef.current?.warpToPlanet(planetId);
   };
 
@@ -247,13 +254,18 @@ export default function App() {
         ? SOLAR_SYSTEM_DATA.find((p) => p.id === focusPlanetId) || null
         : null;
 
-  const focusedProbeData: SpaceProbeInfo | null =
+  const focusedStarData: FamousStarData | null =
     focusPlanetId && !focusedPlanetData
+      ? FAMOUS_STARS_CATALOG.find((s) => s.id === focusPlanetId) || null
+      : null;
+
+  const focusedProbeData: SpaceProbeInfo | null =
+    focusPlanetId && !focusedPlanetData && !focusedStarData
       ? SPACE_PROBES.find((prb) => prb.id === focusPlanetId) || null
       : null;
 
   const focusedGalaxyData: DeepSpaceGalaxyObject | null =
-    focusPlanetId && !focusedPlanetData && !focusedProbeData
+    focusPlanetId && !focusedPlanetData && !focusedStarData && !focusedProbeData
       ? DEEP_SPACE_GALAXIES.find((g) => g.id === focusPlanetId) || null
       : null;
 
@@ -305,6 +317,17 @@ export default function App() {
       badge: isHindi ? '🕳️ ब्लैक होल' : '🕳️ Black Hole',
       color: '#f59e0b',
       keywords: 'black hole sagittarius a* gargantua m87 event horizon ब्लैक होल सैजिटेरियस काला विवर',
+    });
+
+    FAMOUS_STARS_CATALOG.forEach((st) => {
+      items.push({
+        id: st.id,
+        title: `${st.hindiName.split('(')[0].trim()} (${st.name})`,
+        subtitle: `${st.sunRadiusMultiplier}× Sun · ${st.distanceLightYears} · Disc. ${st.discoveryYear}`,
+        badge: isHindi ? '⭐ प्रसिद्ध तारा' : '⭐ Famous Star',
+        color: st.color,
+        keywords: `${st.id} ${st.name} ${st.hindiName} ${st.subtitle} ${st.constellationEn} ${st.constellationHi} ${st.discoveryYear} star tara surya sun giant hypergiant तारा सूर्य विशाल`.toLowerCase(),
+      });
     });
 
     DEEP_SPACE_GALAXIES.forEach((g) => {
@@ -365,6 +388,9 @@ export default function App() {
             focusPlanetId !== 'blackhole' &&
             inspectorTab === 'core'
         )}
+        showStarSunComparison={Boolean(
+          focusedStarData && starInspectorTab === 'compare'
+        )}
         touchInputRef={touchInputRef}
         onTelemetryUpdate={setTelemetry}
         onGameEnd={() => {}}
@@ -373,10 +399,16 @@ export default function App() {
           setFocusPlanetId(planet.id);
           setInspectorTab('overview');
         }}
+        onSelectStarId={(starId) => {
+          triggerAndroidHaptic(14);
+          setActiveNavTab('scope');
+          setFocusPlanetId(starId);
+          setStarInspectorTab('overview');
+        }}
       />
 
       {/* =====================================================================
-          FLOATING 3D PLANET & BLACK HOLE LABELS (SOLAR SYSTEM SCOPE STYLE)
+          FLOATING 3D PLANET, FAMOUS STAR, BLACK HOLE & GALAXY LABELS
          ===================================================================== */}
       {activeNavTab === 'scope' &&
         show3DLabels &&
@@ -393,12 +425,22 @@ export default function App() {
                     top: `${lbl.y}%`,
                     transform: 'translate(-50%, -100%)',
                   }}
-                  className="pointer-events-auto absolute flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#060c1d]/90 active:scale-95 border border-slate-700/80 text-[11px] font-display font-semibold text-white shadow-lg cursor-pointer whitespace-nowrap"
+                  className={`pointer-events-auto absolute flex items-center gap-1.5 px-2.5 py-1 rounded-full active:scale-95 text-[11px] font-display font-semibold text-white shadow-lg cursor-pointer whitespace-nowrap ${
+                    lbl.category === 'star'
+                      ? 'bg-[#191104]/92 border border-amber-400/80 text-amber-100'
+                      : lbl.category === 'galaxy'
+                        ? 'bg-[#140a24]/92 border border-purple-400/75 text-purple-100'
+                        : 'bg-[#060c1d]/90 border border-slate-700/80'
+                  }`}
                 >
-                  <span
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: lbl.color }}
-                  />
+                  {lbl.category === 'star' ? (
+                    <span className="text-amber-300 text-[11px] leading-none">★</span>
+                  ) : (
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: lbl.color }}
+                    />
+                  )}
                   <span>
                     {t.planetNames[lbl.id] || (isHindi ? lbl.hindiName : lbl.name)}
                   </span>
@@ -538,8 +580,8 @@ export default function App() {
                 <div className="flex items-center justify-between px-2 py-1 text-[10px] font-mono text-slate-400">
                   <span>
                     {isHindi
-                      ? `${filteredSearchItems.length} ब्रह्मांडीय पिंड और विमान मिले — टैप करके 3D में जाएं`
-                      : `${filteredSearchItems.length} Cosmic Objects & Spacecraft — Tap to Warp in 3D`}
+                      ? `${filteredSearchItems.length} ब्रह्मांडीय पिंड, तारे और विमान मिले — टैप करें`
+                      : `${filteredSearchItems.length} Planets, Stars, Galaxies & Spacecraft`}
                   </span>
                   <span className="text-amber-300">
                     {isHindi ? '2-उंगली से ज़ूम/पैन करें' : '2-Finger Pinch & Pan'}
@@ -576,6 +618,82 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {/* 45-SECOND PROGRESSIVE MILKY WAY EXIT VOYAGE & LIVE COSMIC DEPTH HUD */}
+          {activeNavTab === 'scope' && !focusPlanetId && (
+            <div className="pointer-events-auto max-w-xl w-full mx-auto bg-[#070e22]/90 border border-slate-800/90 rounded-2xl px-3 py-2 shadow-xl">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-mono text-amber-300 truncate">
+                    📍 {isHindi ? telemetry.cosmicZoneHi || 'सौर मंडल' : telemetry.cosmicZoneEn || 'Solar System'}
+                  </div>
+                  <div className="text-[10px] text-slate-400 truncate">
+                    {telemetry.voyageActive
+                      ? isHindi
+                        ? `किसी भी चमकते तारे (★) पर टैप करें पूरी खोज व सूर्य तुलना वीडियो देखने के लिए!`
+                        : `Tap any glowing Star (★) during the voyage to inspect its Discovery & Sun-Size Video!`
+                      : telemetry.cosmicDistanceLabel || '0.0005 Light-Years (30 AU)'}
+                  </div>
+                </div>
+
+                {!telemetry.voyageActive ? (
+                  <button
+                    onClick={() => {
+                      triggerAndroidHaptic(16);
+                      setFocusPlanetId(null);
+                      setCameraMode('overview');
+                      canvasRef.current?.startGalaxyExitVoyage();
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-display font-bold text-[11px] shadow-md active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
+                  >
+                    {isHindi
+                      ? '🚀 45s आकाशगंगा से बाहर यात्रा'
+                      : '🚀 45s Exit Milky Way'}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => {
+                        triggerAndroidHaptic(8);
+                        canvasRef.current?.toggleVoyageFastForward();
+                      }}
+                      className="px-2 py-1 rounded-lg bg-sky-500/25 border border-sky-400/50 text-sky-200 font-mono text-[10px] font-bold cursor-pointer"
+                    >
+                      {telemetry.voyageSpeedMultiplier === 2 ? '2×' : '1×'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        triggerAndroidHaptic(10);
+                        canvasRef.current?.stopGalaxyExitVoyage();
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-rose-500/25 border border-rose-400/50 text-rose-200 font-mono text-[10px] font-bold cursor-pointer"
+                    >
+                      ⏹ {isHindi ? 'रोकें' : 'Stop'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {telemetry.voyageActive && (
+                <div className="mt-1.5 space-y-1">
+                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-300">
+                    <span>
+                      {isHindi ? 'मिल्की वे एग्ज़िट टाइमर' : 'Galactic Exit Progress'}
+                    </span>
+                    <span className="text-amber-300 font-bold">
+                      {String(telemetry.voyageElapsedSec ?? 0).padStart(2, '0')}s / 45s ({telemetry.voyageProgressPct ?? 0}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-sky-400 via-amber-400 to-purple-500 transition-all duration-300"
+                      style={{ width: `${telemetry.voyageProgressPct ?? 0}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* =================================================================
@@ -793,6 +911,218 @@ export default function App() {
         )}
 
         {/* =================================================================
+            FAMOUS INTERSTELLAR STAR SCIENTIFIC INSPECTOR + HD SUN COMPARISON VIDEO
+           ================================================================= */}
+        {activeNavTab === 'scope' && focusedStarData && (
+          <div className="pointer-events-auto mt-auto lg:my-auto lg:ml-auto lg:mr-4 w-full lg:max-w-lg bg-[#070d1e]/97 border-t lg:border border-amber-400/60 rounded-t-3xl lg:rounded-2xl p-4 shadow-2xl text-white max-h-[60vh] lg:max-h-[78vh] flex flex-col">
+            <div className="w-10 h-1 rounded-full bg-amber-400/70 mx-auto mb-2 lg:hidden shrink-0" />
+            <div className="flex items-start justify-between gap-2 pb-2 border-b border-slate-800 shrink-0">
+              <div className="min-w-0">
+                <div className="text-[10px] font-mono text-amber-300 uppercase truncate">
+                  ⭐ {focusedStarData.spectralClass} · {isHindi ? focusedStarData.constellationHi : focusedStarData.constellationEn}
+                </div>
+                <h2 className="font-display text-base sm:text-lg font-bold text-white flex flex-wrap items-center gap-1.5">
+                  <span>{isHindi ? focusedStarData.hindiName : focusedStarData.name}</span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/50 text-amber-300 font-mono text-[10px]">
+                    {focusedStarData.sunRadiusMultiplier >= 1
+                      ? `${focusedStarData.sunRadiusMultiplier.toLocaleString()}× ☀️`
+                      : `${focusedStarData.sunRadiusMultiplier}× ☀️`}
+                  </span>
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  triggerAndroidHaptic(10);
+                  setFocusPlanetId(null);
+                }}
+                className="px-3 py-1 rounded-full bg-slate-800 text-xs font-mono text-amber-300 active:scale-95 cursor-pointer shrink-0"
+              >
+                ✕ {isHindi ? 'वापस' : 'Back'}
+              </button>
+            </div>
+
+            {/* 3 Segmented Tabs: Discovery Details | HD Sun-vs-Star Video | 3D Sun Scale */}
+            <div className="grid grid-cols-3 gap-1 bg-[#0c162c] p-1 rounded-xl my-2 text-[11px] font-display font-bold shrink-0">
+              <button
+                onClick={() => {
+                  triggerAndroidHaptic(8);
+                  setStarInspectorTab('overview');
+                }}
+                className={`py-1.5 rounded-lg cursor-pointer transition ${
+                  starInspectorTab === 'overview'
+                    ? 'bg-amber-400 text-slate-950'
+                    : 'text-slate-300'
+                }`}
+              >
+                {isHindi ? '⭐ परिचय व खोज' : '⭐ Discovery'}
+              </button>
+              <button
+                onClick={() => {
+                  triggerAndroidHaptic(12);
+                  setStarInspectorTab('video');
+                }}
+                className={`py-1.5 rounded-lg cursor-pointer transition ${
+                  starInspectorTab === 'video'
+                    ? 'bg-amber-400 text-slate-950'
+                    : 'text-amber-300'
+                }`}
+              >
+                {isHindi ? '🎬 तुलना वीडियो' : '🎬 Size Video'}
+              </button>
+              <button
+                onClick={() => {
+                  triggerAndroidHaptic(10);
+                  setStarInspectorTab('compare');
+                }}
+                className={`py-1.5 rounded-lg cursor-pointer transition ${
+                  starInspectorTab === 'compare'
+                    ? 'bg-amber-400 text-slate-950'
+                    : 'text-slate-300'
+                }`}
+              >
+                {isHindi ? '☀️ 3D सूर्य तुलना' : '☀️ 3D Sun Scale'}
+              </button>
+            </div>
+
+            <div className="overflow-y-auto space-y-2.5 pr-1 text-xs">
+              {starInspectorTab === 'overview' && (
+                <>
+                  {/* Direct Quick-Launch Banner for HD Documentary Video */}
+                  <button
+                    onClick={() => {
+                      triggerAndroidHaptic(12);
+                      setStarInspectorTab('video');
+                    }}
+                    className="w-full flex items-center justify-between gap-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-sky-500/20 border border-amber-400/50 text-left cursor-pointer active:scale-[0.99] transition"
+                  >
+                    <div>
+                      <div className="text-xs font-display font-bold text-amber-300">
+                        🎬 {isHindi ? 'सूर्य से आकार तुलना और खोज वीडियो चलाएं' : 'Play Animated Sun-vs-Star & Discovery Video'}
+                      </div>
+                      <div className="text-[10px] text-slate-300 mt-0.5">
+                        {isHindi
+                          ? `${focusedStarData.sunRadiusTextHi} · हिंदी/English आवाज़ सहित`
+                          : `${focusedStarData.sunRadiusTextEn} · With Voice Narration`}
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-lg bg-amber-400 text-slate-950 font-bold text-[11px] shrink-0">
+                      ▶ PLAY
+                    </span>
+                  </button>
+
+                  {/* Discovery Year & Discoverer */}
+                  <div className="bg-[#0e1b38] border border-sky-500/40 rounded-xl p-2.5 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-sky-300">
+                        🔭 {isHindi ? 'कब और किसने खोजा (Discovery Record)' : 'When & Who Discovered It'}
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-sky-500/25 text-sky-200 font-mono text-[10px] font-bold">
+                        {focusedStarData.discoveryYear}
+                      </span>
+                    </div>
+                    <div className="text-white font-semibold">
+                      {isHindi ? focusedStarData.discoveredByHi : focusedStarData.discoveredByEn}
+                    </div>
+                    <p className="text-slate-300 leading-relaxed pt-1 border-t border-slate-800/80">
+                      <span className="text-amber-300 font-bold">
+                        {isHindi ? 'क्या खोजा गया था: ' : 'What Was Discovered: '}
+                      </span>
+                      {isHindi ? focusedStarData.whatWasDiscoveredHi : focusedStarData.whatWasDiscoveredEn}
+                    </p>
+                  </div>
+
+                  {/* Sun Size & Volume Comparison Highlight */}
+                  <div className="bg-[#181205] border border-amber-500/40 rounded-xl p-2.5 space-y-1">
+                    <div className="text-[10px] font-mono text-amber-400">
+                      ☀️ {isHindi ? 'हमारे सूर्य (Sun) से तुलना' : 'Comparison Against Our Sun'}
+                    </div>
+                    <div className="text-amber-200 font-bold">
+                      {isHindi ? focusedStarData.sunRadiusTextHi : focusedStarData.sunRadiusTextEn}
+                    </div>
+                    <div className="text-slate-300 text-[11px]">
+                      {isHindi ? focusedStarData.sunsVolumeFitHi : focusedStarData.sunsVolumeFitEn}
+                    </div>
+                  </div>
+
+                  {/* Scientific Telemetry Grid */}
+                  <div className="grid grid-cols-2 gap-1.5 font-mono">
+                    <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
+                      <div className="text-[10px] text-slate-400">
+                        {isHindi ? 'पृथ्वी से दूरी' : 'Distance'}
+                      </div>
+                      <div className="text-white font-semibold">
+                        {focusedStarData.distanceLightYears}
+                      </div>
+                    </div>
+                    <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
+                      <div className="text-[10px] text-slate-400">
+                        {isHindi ? 'सतह का तापमान' : 'Surface Temp'}
+                      </div>
+                      <div className="text-amber-300 font-semibold">
+                        {focusedStarData.temperature}
+                      </div>
+                    </div>
+                    <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
+                      <div className="text-[10px] text-slate-400">
+                        {isHindi ? 'द्रव्यमान (Mass)' : 'Stellar Mass'}
+                      </div>
+                      <div className="text-sky-300 font-semibold">
+                        {focusedStarData.massSolar}
+                      </div>
+                    </div>
+                    <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2">
+                      <div className="text-[10px] text-slate-400">
+                        {isHindi ? 'चमक (Luminosity)' : 'Luminosity'}
+                      </div>
+                      <div className="text-emerald-300 font-semibold">
+                        {focusedStarData.luminositySolar}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {starInspectorTab === 'video' && (
+                <StarComparisonVideo star={focusedStarData} isHindi={isHindi} />
+              )}
+
+              {starInspectorTab === 'compare' && (
+                <div className="space-y-2">
+                  <div className="bg-[#0e1b38] border border-amber-400/50 rounded-xl p-3 space-y-1.5">
+                    <div className="text-[11px] font-display font-bold text-amber-300">
+                      ☀️ {isHindi ? '3D स्क्रीन पर बाईं ओर हमारा सूर्य (पीला गोला) दिखाई दे रहा है!' : 'Live 3D Sun Reference Sphere Active Next to This Star!'}
+                    </div>
+                    <p className="text-slate-300 leading-relaxed">
+                      {isHindi
+                        ? 'अपनी उंगली से 3D स्क्रीन को 360° घुमाकर देखें कि हमारे सूर्य के मुकाबले यह तारा कितना विशाल (या छोटा) है।'
+                        : 'Drag the 3D scene around 360° or pinch to zoom to inspect the live reference Sun hologram hovering beside this star.'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1.5 font-mono">
+                    <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2.5">
+                      <div className="text-[10px] text-slate-400">
+                        {isHindi ? 'त्रिज्या अनुपात (Radius vs Sun)' : 'Radius Multiplier vs Sun'}
+                      </div>
+                      <div className="text-amber-300 font-bold text-sm mt-0.5">
+                        {isHindi ? focusedStarData.sunRadiusTextHi : focusedStarData.sunRadiusTextEn}
+                      </div>
+                    </div>
+                    <div className="bg-[#0b1326] border border-slate-800 rounded-lg p-2.5">
+                      <div className="text-[10px] text-slate-400">
+                        {isHindi ? 'आयतन क्षमता (Volume Capacity)' : 'Total Suns Fitting Inside'}
+                      </div>
+                      <div className="text-emerald-300 font-bold text-sm mt-0.5">
+                        {isHindi ? focusedStarData.sunsVolumeFitHi : focusedStarData.sunsVolumeFitEn}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================
             DEEP-SPACE GALAXY / NEBULA / SUPERCLUSTER / CMB 3D INSPECTOR SHEET
            ================================================================= */}
         {activeNavTab === 'scope' && focusedGalaxyData && (
@@ -933,9 +1263,9 @@ export default function App() {
         <div className="pointer-events-auto mt-auto flex flex-col">
           {activeNavTab === 'scope' && (
             <div className="bg-gradient-to-t from-[#050914] via-[#050914]/95 to-transparent pt-1">
-              {/* Category Switcher Pills: Planets vs Galaxies & Universe vs Spacecrafts/Vimans */}
-              <div className="flex items-center justify-between px-3 pb-1">
-                <div className="flex items-center gap-1.5">
+              {/* Category Switcher Pills: Planets | 14 Famous Stars | Galaxies & Universe | Spacecrafts/Vimans */}
+              <div className="flex items-center justify-between px-3 pb-1 overflow-x-auto">
+                <div className="flex items-center gap-1.5 whitespace-nowrap">
                   <button
                     onClick={() => setCarouselCategory('planets')}
                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-display font-bold cursor-pointer transition ${
@@ -947,6 +1277,16 @@ export default function App() {
                     {isHindi ? '🪐 सौर मंडल (11)' : '🪐 Solar System (11)'}
                   </button>
                   <button
+                    onClick={() => setCarouselCategory('stars')}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-display font-bold cursor-pointer transition ${
+                      carouselCategory === 'stars'
+                        ? 'bg-orange-400 text-slate-950'
+                        : 'bg-[#0b1428] text-amber-200 border border-amber-500/40'
+                    }`}
+                  >
+                    {isHindi ? '⭐ प्रसिद्ध तारे (14)' : '⭐ Famous Stars (14)'}
+                  </button>
+                  <button
                     onClick={() => setCarouselCategory('galaxies')}
                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-display font-bold cursor-pointer transition ${
                       carouselCategory === 'galaxies'
@@ -954,7 +1294,7 @@ export default function App() {
                         : 'bg-[#0b1428] text-slate-300 border border-slate-800'
                     }`}
                   >
-                    {isHindi ? '🌌 आकाशगंगाएं व ब्रह्मांड (12)' : '🌌 Galaxies & Cosmos (12)'}
+                    {isHindi ? '🌌 आकाशगंगाएं (12)' : '🌌 Galaxies (12)'}
                   </button>
                   <button
                     onClick={() => setCarouselCategory('probes')}
@@ -964,7 +1304,7 @@ export default function App() {
                         : 'bg-[#0b1428] text-slate-300 border border-slate-800'
                     }`}
                   >
-                    {isHindi ? '🛰️ सभी विमान / यान (12)' : '🛰️ All Spacecrafts (12)'}
+                    {isHindi ? '🛰️ विमान / यान (12)' : '🛰️ Spacecrafts (12)'}
                   </button>
                 </div>
               </div>
@@ -1007,6 +1347,35 @@ export default function App() {
                     </button>
                   </>
                 )}
+
+                {carouselCategory === 'stars' &&
+                  FAMOUS_STARS_CATALOG.map((st) => {
+                    const isSelected = focusPlanetId === st.id;
+                    return (
+                      <button
+                        key={st.id}
+                        onClick={() => handleSelectPlanetInScope(st.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition active:scale-95 cursor-pointer whitespace-nowrap shrink-0 ${
+                          isSelected
+                            ? 'bg-orange-400 text-slate-950 border-amber-200 font-bold shadow-md'
+                            : 'bg-[#1a1205]/95 text-amber-200 border-amber-500/40'
+                        }`}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: st.color }}
+                        />
+                        <span>
+                          {isHindi ? st.hindiName.split('(')[0].trim() : st.name.split('(')[0].trim()}
+                        </span>
+                        <span className="text-[10px] font-mono opacity-80">
+                          {st.sunRadiusMultiplier >= 1
+                            ? `${st.sunRadiusMultiplier}×☉`
+                            : `${st.sunRadiusMultiplier}×☉`}
+                        </span>
+                      </button>
+                    );
+                  })}
 
                 {carouselCategory === 'galaxies' &&
                   DEEP_SPACE_GALAXIES.map((gal) => {

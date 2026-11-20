@@ -12,6 +12,10 @@ import {
   PlanetData,
 } from '../data/solarSystemData';
 import {
+  FAMOUS_STARS_CATALOG,
+  FamousStarData,
+} from '../data/famousStarsData';
+import {
   createPlanetTexture,
   createPlanetBumpTexture,
   createCloudLayerTexture,
@@ -61,7 +65,7 @@ export interface ProjectedCelestialLabel {
   y: number; // percentage 0..100
   visible: boolean;
   distKm: string;
-  category?: 'planet' | 'blackhole' | 'probe' | 'galaxy';
+  category?: 'planet' | 'blackhole' | 'probe' | 'galaxy' | 'star';
 }
 
 export interface HudTelemetry {
@@ -92,11 +96,21 @@ export interface HudTelemetry {
   completedMissions: string[];
   radarBlips: RadarBlip[];
   projectedLabels?: ProjectedCelestialLabel[];
+  voyageActive?: boolean;
+  voyageProgressPct?: number;
+  voyageElapsedSec?: number;
+  voyageSpeedMultiplier?: number;
+  cosmicZoneEn?: string;
+  cosmicZoneHi?: string;
+  cosmicDistanceLabel?: string;
 }
 
 export interface SpaceCanvasHandle {
   warpToPlanet: (planetId: string) => void;
   warpToBlackHole: () => void;
+  startGalaxyExitVoyage: () => void;
+  stopGalaxyExitVoyage: () => void;
+  toggleVoyageFastForward: () => void;
   buildStructureNearPlanet: (type: 'turret' | 'extractor' | 'station') => boolean;
   upgradeShipSystem: (id: keyof ShipUpgradeLevels) => boolean;
   fireHomingMissile: () => void;
@@ -114,10 +128,12 @@ interface SpaceCanvasProps {
   timeScale: number;
   focusPlanetId?: string | null;
   showCoreCutaway?: boolean;
+  showStarSunComparison?: boolean;
   touchInputRef: React.MutableRefObject<TouchInputState>;
   onTelemetryUpdate: (telemetry: HudTelemetry) => void;
   onGameEnd: (result: 'victory' | 'gameover') => void;
   onSelectPlanetCodex: (planet: PlanetData) => void;
+  onSelectStarId?: (starId: string) => void;
 }
 
 const SAVE_STORAGE_KEY = 'astral_odyssey_save_v2';
@@ -144,10 +160,12 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       timeScale,
       focusPlanetId = null,
       showCoreCutaway = false,
+      showStarSunComparison = false,
       touchInputRef,
       onTelemetryUpdate,
       onGameEnd,
       onSelectPlanetCodex,
+      onSelectStarId,
     },
     ref
   ) => {
@@ -159,9 +177,11 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
     const timeScaleRef = useRef<number>(timeScale);
     const focusPlanetIdRef = useRef<string | null>(focusPlanetId);
     const showCoreCutawayRef = useRef<boolean>(showCoreCutaway);
+    const showStarSunComparisonRef = useRef<boolean>(showStarSunComparison);
     const onTelemetryRef = useRef(onTelemetryUpdate);
     const onGameEndRef = useRef(onGameEnd);
     const onSelectPlanetRef = useRef(onSelectPlanetCodex);
+    const onSelectStarIdRef = useRef(onSelectStarId);
 
     useEffect(() => {
       gameStateRef.current = gameState;
@@ -182,6 +202,9 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       showCoreCutawayRef.current = Boolean(showCoreCutaway);
     }, [showCoreCutaway]);
     useEffect(() => {
+      showStarSunComparisonRef.current = Boolean(showStarSunComparison);
+    }, [showStarSunComparison]);
+    useEffect(() => {
       onTelemetryRef.current = onTelemetryUpdate;
     }, [onTelemetryUpdate]);
     useEffect(() => {
@@ -190,10 +213,16 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
     useEffect(() => {
       onSelectPlanetRef.current = onSelectPlanetCodex;
     }, [onSelectPlanetCodex]);
+    useEffect(() => {
+      onSelectStarIdRef.current = onSelectStarId;
+    }, [onSelectStarId]);
 
     const actionsRef = useRef<SpaceCanvasHandle>({
       warpToPlanet: () => {},
       warpToBlackHole: () => {},
+      startGalaxyExitVoyage: () => {},
+      stopGalaxyExitVoyage: () => {},
+      toggleVoyageFastForward: () => {},
       buildStructureNearPlanet: () => false,
       upgradeShipSystem: () => false,
       fireHomingMissile: () => {},
@@ -207,6 +236,9 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
     useImperativeHandle(ref, () => ({
       warpToPlanet: (id: string) => actionsRef.current.warpToPlanet(id),
       warpToBlackHole: () => actionsRef.current.warpToBlackHole(),
+      startGalaxyExitVoyage: () => actionsRef.current.startGalaxyExitVoyage(),
+      stopGalaxyExitVoyage: () => actionsRef.current.stopGalaxyExitVoyage(),
+      toggleVoyageFastForward: () => actionsRef.current.toggleVoyageFastForward(),
       buildStructureNearPlanet: (type) =>
         actionsRef.current.buildStructureNearPlanet(type),
       upgradeShipSystem: (id) => actionsRef.current.upgradeShipSystem(id),
@@ -266,7 +298,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       const envRT = pmremGenerator.fromScene(new RoomEnvironment(), 0.04);
       pmremGenerator.dispose();
 
-      const skyboxGeo = new THREE.SphereGeometry(6200, 48, 32);
+      const skyboxGeo = new THREE.SphereGeometry(28000, 48, 32);
       const skyboxTex = createMilkyWayPanoramaTexture();
       const skyboxMat = new THREE.MeshBasicMaterial({
         map: skyboxTex,
@@ -396,12 +428,12 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       }
       scene.add(eclipticGridGroup);
 
-      // 3. Camera (Extended 9,000-unit Far Plane for Intergalactic & Observable Universe Zoom!)
+      // 3. Camera (Extended 42,000-unit Far Plane for Interstellar Stars -> Milky Way Exit -> Observable Universe!)
       const camera = new THREE.PerspectiveCamera(
         56,
         container.clientWidth / container.clientHeight,
-        0.2,
-        9000
+        0.5,
+        42000
       );
       camera.position.set(0, 48, 135);
 
@@ -999,6 +1031,125 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
         });
       });
 
+      // 6E. 14 Clickable 3D Famous Interstellar & Hypergiant Stars Along the Journey Out of the Milky Way!
+      interface FamousStarRuntime {
+        data: FamousStarData;
+        group: THREE.Group;
+        photosphereMesh: THREE.Mesh;
+        coronaSprite: THREE.Sprite;
+        sunCompGroup: THREE.Group;
+      }
+      const starsRuntime: FamousStarRuntime[] = [];
+
+      FAMOUS_STARS_CATALOG.forEach((sData) => {
+        const sGroup = new THREE.Group();
+        sGroup.position.set(
+          sData.position3D[0],
+          sData.position3D[1],
+          sData.position3D[2]
+        );
+
+        // Glowing 3D Photosphere (Clickable via Raycaster)
+        const starGeo = new THREE.SphereGeometry(sData.visualRadius3D, 32, 24);
+        const starMat = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(sData.coreColor),
+        });
+        const photosphereMesh = new THREE.Mesh(starGeo, starMat);
+        sGroup.add(photosphereMesh);
+
+        // Fiery Chromosphere Plasma Shell
+        const shellGeo = new THREE.SphereGeometry(sData.visualRadius3D * 1.12, 24, 18);
+        const shellMat = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(sData.color),
+          transparent: true,
+          opacity: 0.45,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const shellMesh = new THREE.Mesh(shellGeo, shellMat);
+        sGroup.add(shellMesh);
+
+        // Volumetric Stellar Corona Glow Sprite
+        const coronaMat = new THREE.SpriteMaterial({
+          map: sharedGalaxyGlowTex,
+          color: new THREE.Color(sData.color),
+          transparent: true,
+          opacity: 0.92,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const coronaSprite = new THREE.Sprite(coronaMat);
+        coronaSprite.scale.set(
+          sData.visualRadius3D * 5.8,
+          sData.visualRadius3D * 5.8,
+          1
+        );
+        sGroup.add(coronaSprite);
+
+        // 3D Sun-Size Reference Companion Hologram (Shown when inspecting Star vs Sun in 3D!)
+        const sunCompGroup = new THREE.Group();
+        sunCompGroup.visible = false;
+        const refSunRadius =
+          sData.sunRadiusMultiplier < 1
+            ? sData.visualRadius3D * 1.4
+            : Math.max(
+                0.75,
+                Math.min(
+                  sData.visualRadius3D * 0.85,
+                  sData.visualRadius3D / Math.pow(sData.sunRadiusMultiplier, 0.35)
+                )
+              );
+        const refSunOffset = sData.visualRadius3D + refSunRadius + Math.max(4, sData.visualRadius3D * 0.45);
+        const refSunMesh = new THREE.Mesh(
+          new THREE.SphereGeometry(refSunRadius, 24, 18),
+          new THREE.MeshBasicMaterial({ color: 0xfde047 })
+        );
+        refSunMesh.position.set(-refSunOffset, 0, 0);
+        sunCompGroup.add(refSunMesh);
+
+        const refSunGlow = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: sharedGalaxyGlowTex,
+            color: 0xf59e0b,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          })
+        );
+        refSunGlow.scale.set(refSunRadius * 4.5, refSunRadius * 4.5, 1);
+        refSunGlow.position.copy(refSunMesh.position);
+        sunCompGroup.add(refSunGlow);
+
+        // Reference scale measurement ring around the star
+        const measPts: THREE.Vector3[] = [];
+        const ringR = sData.visualRadius3D * 1.32;
+        for (let k = 0; k <= 64; k++) {
+          const ang = (k / 64) * Math.PI * 2;
+          measPts.push(new THREE.Vector3(Math.cos(ang) * ringR, 0, Math.sin(ang) * ringR));
+        }
+        sunCompGroup.add(
+          new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(measPts),
+            new THREE.LineBasicMaterial({
+              color: 0x38bdf8,
+              transparent: true,
+              opacity: 0.55,
+            })
+          )
+        );
+        sGroup.add(sunCompGroup);
+
+        scene.add(sGroup);
+        starsRuntime.push({
+          data: sData,
+          group: sGroup,
+          photosphereMesh,
+          coronaSprite,
+          sunCompGroup,
+        });
+      });
+
       // Outer Oort Cloud & Heliosphere Boundary Ring (r = 465)
       const oortRingPts: THREE.Vector3[] = [];
       for (let s = 0; s <= 128; s++) {
@@ -1416,7 +1567,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       window.addEventListener('keyup', onKeyUp);
       window.addEventListener('blur', onWindowBlur);
 
-      // Interactive 360-Degree Touch/Mouse Camera Orbit + Multi-Scale Pinch/Scroll Zoom (0.16x to 22x) + 2-Finger Pan in All Directions
+      // Interactive 360-Degree Touch/Mouse Camera Orbit + Multi-Scale Progressive Zoom (0.16x to 92x) + 45s Milky Way Exit Voyage
       const raycaster = new THREE.Raycaster();
       const pointer = new THREE.Vector2();
       let isDraggingOrbit = false;
@@ -1429,11 +1580,18 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
       let orbitAzimuth = 0.65;
       let orbitElevation = 0.32;
       let orbitZoomMultiplier = 1.0;
+      let displayedZoom = 1.0;
       let pinchStartDist = 0;
       let pinchStartZoom = 1.0;
       let lastTouchMidX = 0;
       let lastTouchMidY = 0;
       const cameraPanOffset = new THREE.Vector3(0, 0, 0);
+
+      // 45-Second Progressive Interstellar & Milky Way Exit Voyage State
+      const VOYAGE_DURATION_SEC = 45.0;
+      let voyageActive = false;
+      let voyageElapsed = 0;
+      let voyageSpeedMult = 1;
 
       const onPointerDown = (e: PointerEvent) => {
         if (gameStateRef.current !== 'playing' || isTwoFingerGesture) return;
@@ -1481,24 +1639,46 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           e.clientX - dragStartX,
           e.clientY - dragStartY
         );
-        // If user tapped without dragging, raycast to select 3D planet!
+        // If user tapped without dragging, raycast to select 3D Planet OR 3D Famous Star!
         if (moveDist < 9 && gameStateRef.current === 'playing') {
           const rect = renderer.domElement.getBoundingClientRect();
           pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
           pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
           raycaster.setFromCamera(pointer, camera);
+
           const planetMeshes = planetsRuntime.map((p) => p.mesh);
           const hits = raycaster.intersectObjects(planetMeshes, false);
           if (hits.length > 0) {
             const hitMesh = hits[0].object;
             const found = planetsRuntime.find((p) => p.mesh === hitMesh);
             if (found) {
+              voyageActive = false;
               playerState.scannedPlanets.add(found.data.id);
               orbitZoomMultiplier = 1.0;
               cameraPanOffset.set(0, 0, 0);
               markSaveDirty();
               soundEngine.playCollect();
               onSelectPlanetRef.current(found.data);
+              return;
+            }
+          }
+
+          // Check 14 Clickable 3D Famous Interstellar Stars!
+          const starMeshes = starsRuntime.map((s) => s.photosphereMesh);
+          const starHits = raycaster.intersectObjects(starMeshes, false);
+          if (starHits.length > 0) {
+            const hitStarMesh = starHits[0].object;
+            const foundStar = starsRuntime.find(
+              (s) => s.photosphereMesh === hitStarMesh
+            );
+            if (foundStar) {
+              voyageActive = false;
+              orbitZoomMultiplier = 1.0;
+              displayedZoom = 1.0;
+              cameraPanOffset.set(0, 0, 0);
+              soundEngine.playCollect();
+              onSelectStarIdRef.current?.(foundStar.data.id);
+              return;
             }
           }
         }
@@ -1506,10 +1686,12 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
 
       const onWheel = (e: WheelEvent) => {
         e.preventDefault();
-        const zoomFactor = e.deltaY > 0 ? 1.12 : 0.89;
+        voyageActive = false;
+        // Progressive gentle wheel zoom so gliding past stars & exiting Milky Way feels majestic
+        const zoomFactor = e.deltaY > 0 ? 1.08 : 0.92;
         orbitZoomMultiplier = Math.max(
           0.16,
-          Math.min(22.0, orbitZoomMultiplier * zoomFactor)
+          Math.min(92.0, orbitZoomMultiplier * zoomFactor)
         );
       };
 
@@ -1518,6 +1700,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           isTwoFingerGesture = true;
           isDraggingOrbit = false;
           activeOrbitPointerId = null;
+          voyageActive = false;
           const dx = e.touches[0].clientX - e.touches[1].clientX;
           const dy = e.touches[0].clientY - e.touches[1].clientY;
           pinchStartDist = Math.hypot(dx, dy);
@@ -1533,13 +1716,11 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           const dy = e.touches[0].clientY - e.touches[1].clientY;
           const dist = Math.hypot(dx, dy);
           const ratio = pinchStartDist / Math.max(18, dist);
-          // Smooth exponential pinch-to-zoom from 0.16x (Planet Surface) to 22.0x (Galaxies & CMB Edge!)
-          orbitZoomMultiplier = Math.max(
-            0.16,
-            Math.min(22.0, pinchStartZoom * Math.pow(ratio, 1.25))
-          );
+          // Progressive multi-scale pinch-zoom: Solar System -> Interstellar Stars -> Milky Way -> Galaxies & CMB!
+          const nextZoom = pinchStartZoom * Math.pow(ratio, 0.88);
+          orbitZoomMultiplier = Math.max(0.16, Math.min(92.0, nextZoom));
 
-          // 2-Finger Multi-Directional Pan across the Solar System, Milky Way & Galaxies!
+          // 2-Finger Multi-Directional Pan across the Solar System, Stars, Milky Way & Galaxies!
           const midX = (e.touches[0].clientX + e.touches[1].clientX) * 0.5;
           const midY = (e.touches[0].clientY + e.touches[1].clientY) * 0.5;
           const panDx = midX - lastTouchMidX;
@@ -1547,7 +1728,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           lastTouchMidX = midX;
           lastTouchMidY = midY;
 
-          const panScale = 0.42 * Math.max(0.5, orbitZoomMultiplier);
+          const panScale = 0.42 * Math.max(0.5, displayedZoom);
           const rightX = -Math.sin(orbitAzimuth);
           const rightZ = Math.cos(orbitAzimuth);
           const fwdX = -Math.cos(orbitAzimuth) * Math.sin(orbitElevation);
@@ -1556,7 +1737,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           cameraPanOffset.x += (rightX * panDx + fwdX * panDy) * panScale;
           cameraPanOffset.z += (rightZ * panDx + fwdZ * panDy) * panScale;
           cameraPanOffset.y += panDy * panScale * 0.65;
-          cameraPanOffset.clampLength(0, 2600);
+          cameraPanOffset.clampLength(0, 12500);
         }
       };
 
@@ -1632,7 +1813,9 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
 
       actionsRef.current = {
         warpToPlanet: (targetId: string) => {
+          voyageActive = false;
           orbitZoomMultiplier = 1.0;
+          displayedZoom = 1.0;
           cameraPanOffset.set(0, 0, 0);
           soundEngine.playWarp();
 
@@ -1661,7 +1844,14 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             return;
           }
 
-          // 2. Check if targetId is a Spacecraft / Viman (SPACE_PROBES)
+          // 2. Check if targetId is a Famous Interstellar Star
+          const starTarget = starsRuntime.find((s) => s.data.id === targetId);
+          if (starTarget) {
+            cameraShake = 0.28;
+            return;
+          }
+
+          // 3. Check if targetId is a Spacecraft / Viman (SPACE_PROBES)
           const probeTarget = probesRuntime.find((prb) => prb.info.id === targetId);
           if (probeTarget) {
             playerState.discoveredProbes.add(probeTarget.info.id);
@@ -1673,7 +1863,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             return;
           }
 
-          // 3. Check if targetId is a Deep-Space Galaxy / Nebula / Supercluster / CMB
+          // 4. Check if targetId is a Deep-Space Galaxy / Nebula / Supercluster / CMB
           const galTarget = galaxiesRuntime.find((g) => g.data.id === targetId);
           if (galTarget) {
             cameraShake = 0.3;
@@ -1681,8 +1871,29 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           }
         },
 
-        warpToBlackHole: () => {
+        startGalaxyExitVoyage: () => {
+          cameraPanOffset.set(0, 0, 0);
           orbitZoomMultiplier = 1.0;
+          displayedZoom = 1.0;
+          orbitElevation = 0.24;
+          voyageElapsed = 0;
+          voyageSpeedMult = 1;
+          voyageActive = true;
+          soundEngine.playWarp();
+        },
+
+        stopGalaxyExitVoyage: () => {
+          voyageActive = false;
+        },
+
+        toggleVoyageFastForward: () => {
+          voyageSpeedMult = voyageSpeedMult === 1 ? 2 : 1;
+        },
+
+        warpToBlackHole: () => {
+          voyageActive = false;
+          orbitZoomMultiplier = 1.0;
+          displayedZoom = 1.0;
           cameraPanOffset.set(0, 0, 0);
           soundEngine.playWarp();
           playerState.position.set(
@@ -2681,24 +2892,92 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             pr.coreGroup.rotation.y += 0.35 * dt;
           }
 
+          // Animate 14 Clickable Famous Stars + Toggle 3D Sun-Size Reference Comparison Hologram
+          const starElapsed = clock.getElapsedTime();
+          for (let s = 0; s < starsRuntime.length; s++) {
+            const sr = starsRuntime[s];
+            sr.photosphereMesh.rotation.y += 0.22 * dt;
+            const pulse = 1 + Math.sin(starElapsed * 2.2 + s * 0.9) * 0.06;
+            const baseScale = sr.data.visualRadius3D * 5.8 * pulse;
+            sr.coronaSprite.scale.set(baseScale, baseScale, 1);
+            sr.sunCompGroup.visible =
+              activeFocusId === sr.data.id && showStarSunComparisonRef.current;
+            if (sr.sunCompGroup.visible) {
+              sr.sunCompGroup.rotation.y += 0.35 * dt;
+            }
+          }
+
+          // Advance 45-Second Progressive Milky Way Exit Voyage when active!
+          if (voyageActive && !activeFocusId) {
+            voyageElapsed = Math.min(
+              VOYAGE_DURATION_SEC,
+              voyageElapsed + dt * voyageSpeedMult
+            );
+            const p = voyageElapsed / VOYAGE_DURATION_SEC;
+
+            // Multi-Stage Real Cosmic Journey Curve (45 seconds total!)
+            // Stage 1 (0–8s, p: 0..0.18): Solar System -> Oort Cloud (1.0x -> 3.2x)
+            // Stage 2 (8–28s, p: 0.18..0.62): 20 Full Seconds Cruising Past 14 Famous Interstellar Stars (3.2x -> 26.0x)
+            // Stage 3 (28–37s, p: 0.62..0.82): Rising Above the Milky Way Spiral Disk (26.0x -> 52.0x)
+            // Stage 4 (37–45s, p: 0.82..1.00): Local Group -> Andromeda -> M87* -> Laniakea -> CMB (52.0x -> 88.0x)
+            if (p < 0.18) {
+              const tStage = p / 0.18;
+              orbitZoomMultiplier = 1.0 * Math.pow(3.2, tStage);
+              orbitElevation = THREE.MathUtils.lerp(0.24, 0.28, tStage);
+            } else if (p < 0.62) {
+              const tStage = (p - 0.18) / 0.44;
+              orbitZoomMultiplier = 3.2 * Math.pow(26.0 / 3.2, tStage);
+              orbitElevation = THREE.MathUtils.lerp(0.28, 0.40, tStage);
+            } else if (p < 0.82) {
+              const tStage = (p - 0.62) / 0.20;
+              orbitZoomMultiplier = 26.0 * Math.pow(52.0 / 26.0, tStage);
+              orbitElevation = THREE.MathUtils.lerp(0.40, 0.64, tStage);
+            } else {
+              const tStage = (p - 0.82) / 0.18;
+              orbitZoomMultiplier = 52.0 * Math.pow(88.0 / 52.0, tStage);
+              orbitElevation = THREE.MathUtils.lerp(0.64, 0.56, tStage);
+            }
+
+            if (!isDraggingOrbit && !isTwoFingerGesture) {
+              orbitAzimuth += 0.17 * dt * voyageSpeedMult;
+            }
+            if (voyageElapsed >= VOYAGE_DURATION_SEC) {
+              voyageActive = false;
+            }
+          }
+
+          displayedZoom = THREE.MathUtils.damp(
+            displayedZoom,
+            orbitZoomMultiplier,
+            voyageActive ? 4.5 : 3.2,
+            dt
+          );
+
           const focusedPlanetRuntime = activeFocusId
             ? planetsRuntime.find((p) => p.data.id === activeFocusId)
             : null;
-          const focusedProbeRuntime =
+          const focusedStarRuntime =
             activeFocusId && !focusedPlanetRuntime
+              ? starsRuntime.find((s) => s.data.id === activeFocusId)
+              : null;
+          const focusedProbeRuntime =
+            activeFocusId && !focusedPlanetRuntime && !focusedStarRuntime
               ? probesRuntime.find((prb) => prb.info.id === activeFocusId)
               : null;
           const focusedGalaxyRuntime =
-            activeFocusId && !focusedPlanetRuntime && !focusedProbeRuntime
+            activeFocusId &&
+            !focusedPlanetRuntime &&
+            !focusedStarRuntime &&
+            !focusedProbeRuntime
               ? galaxiesRuntime.find((g) => g.data.id === activeFocusId)
               : null;
 
-          if (!isDraggingOrbit && !isTwoFingerGesture) {
+          if (!isDraggingOrbit && !isTwoFingerGesture && !voyageActive) {
             orbitAzimuth += 0.11 * dt;
           }
 
           if (activeFocusId === 'blackhole') {
-            const dist = 46 * orbitZoomMultiplier;
+            const dist = 46 * displayedZoom;
             const horiz = Math.cos(orbitElevation) * dist;
             _vec3CamTarget.set(
               blackHoleGroup.position.x + Math.cos(orbitAzimuth) * horiz,
@@ -2711,7 +2990,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
           } else if (focusedPlanetRuntime) {
             // Interactive 360-degree Solar System Scope Orbital Camera (Touch/Mouse Drag + Pinch/Wheel Zoom)
             const baseDist = Math.max(6.8, focusedPlanetRuntime.data.radius * 2.65);
-            const inspectDist = baseDist * orbitZoomMultiplier;
+            const inspectDist = baseDist * displayedZoom;
             const horiz = Math.cos(orbitElevation) * inspectDist;
             _vec3CamTarget.set(
               focusedPlanetRuntime.rootGroup.position.x +
@@ -2726,9 +3005,30 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             camera.fov = THREE.MathUtils.damp(camera.fov, 48, 6, dt);
             camera.updateProjectionMatrix();
             playerShip.group.visible = false;
+          } else if (focusedStarRuntime) {
+            // Close-up 3D Stellar Inspection Camera (with 3D Sun-Size Comparison side-by-side!)
+            const starBaseDist = Math.max(
+              24,
+              focusedStarRuntime.data.visualRadius3D * 4.4
+            );
+            const starDist =
+              starBaseDist * Math.max(0.45, Math.min(4.5, displayedZoom));
+            const horiz = Math.cos(orbitElevation) * starDist;
+            _vec3CamTarget.set(
+              focusedStarRuntime.group.position.x + Math.cos(orbitAzimuth) * horiz,
+              focusedStarRuntime.group.position.y + Math.sin(orbitElevation) * starDist,
+              focusedStarRuntime.group.position.z + Math.sin(orbitAzimuth) * horiz
+            );
+            const starGap = camera.position.distanceTo(_vec3CamTarget);
+            const starLerpSpeed = starGap > 900 ? 2.4 : 6.8;
+            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-starLerpSpeed * dt));
+            camera.lookAt(focusedStarRuntime.group.position);
+            camera.fov = THREE.MathUtils.damp(camera.fov, 50, 6, dt);
+            camera.updateProjectionMatrix();
+            playerShip.group.visible = false;
           } else if (focusedProbeRuntime) {
             // Close-up 3D Orbital Inspection of Historic Spacecraft / Viman!
-            const probeDist = 6.5 * Math.max(0.45, Math.min(4.0, orbitZoomMultiplier));
+            const probeDist = 6.5 * Math.max(0.45, Math.min(4.0, displayedZoom));
             const horiz = Math.cos(orbitElevation) * probeDist;
             _vec3CamTarget.set(
               focusedProbeRuntime.group.position.x + Math.cos(orbitAzimuth) * horiz,
@@ -2744,15 +3044,18 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             // Intergalactic 3D Camera Orbit around Deep-Space Galaxy, Nebula, Supercluster or CMB!
             const galDist =
               focusedGalaxyRuntime.data.scale3D *
-              1.65 *
-              Math.max(0.35, Math.min(5.0, orbitZoomMultiplier));
+              1.55 *
+              Math.max(0.35, Math.min(4.5, displayedZoom));
             const horiz = Math.cos(orbitElevation) * galDist;
             _vec3CamTarget.set(
               focusedGalaxyRuntime.group.position.x + Math.cos(orbitAzimuth) * horiz,
               focusedGalaxyRuntime.group.position.y + Math.sin(orbitElevation) * galDist,
               focusedGalaxyRuntime.group.position.z + Math.sin(orbitAzimuth) * horiz
             );
-            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-6.5 * dt));
+            // Smooth cinematic glide across intergalactic distances instead of hard-snapping!
+            const galGap = camera.position.distanceTo(_vec3CamTarget);
+            const galLerpSpeed = galGap > 1800 ? 1.85 : 5.5;
+            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-galLerpSpeed * dt));
             camera.lookAt(focusedGalaxyRuntime.group.position);
             camera.fov = THREE.MathUtils.damp(camera.fov, 54, 6, dt);
             camera.updateProjectionMatrix();
@@ -2761,7 +3064,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             _vec3D.set(shakeX, 6.8 + shakeY, 0);
             _vec3CamTarget
               .copy(playerState.position)
-              .addScaledVector(_vec3A, -16.5 * orbitZoomMultiplier)
+              .addScaledVector(_vec3A, -16.5 * displayedZoom)
               .add(_vec3D);
 
             camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-8.5 * dt));
@@ -2787,15 +3090,15 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             camera.lookAt(_vec3LookAt);
             playerShip.group.visible = false;
           } else {
-            // Interactive 360-degree Multi-Scale Solar System -> Milky Way -> Local Group Galaxies -> CMB Camera!
-            const mapDist = 175 * orbitZoomMultiplier;
+            // Interactive 360-degree Multi-Scale Solar System -> 14 Famous Stars -> Milky Way -> Local Group Galaxies -> CMB Camera!
+            const mapDist = 175 * displayedZoom;
             const mapElev = Math.max(-1.25, Math.min(1.3, orbitElevation + 0.18));
             _vec3CamTarget.set(
               cameraPanOffset.x + Math.cos(orbitAzimuth) * Math.cos(mapElev) * mapDist,
               cameraPanOffset.y + Math.sin(mapElev) * mapDist,
               cameraPanOffset.z + Math.sin(orbitAzimuth) * Math.cos(mapElev) * mapDist
             );
-            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-7.0 * dt));
+            camera.position.lerp(_vec3CamTarget, 1 - Math.exp(-5.8 * dt));
             camera.lookAt(cameraPanOffset);
             playerShip.group.visible = false;
           }
@@ -2873,7 +3176,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             Math.max(0, 1 - playerState.missileCooldown / 3.2) * 100
           );
 
-          // Project 3D Planet, Spacecraft, Black Hole & Deep-Space Galaxy coordinates to 2D Screen Space
+          // Project 3D Planet, Famous Star, Black Hole & Deep-Space Galaxy coordinates to 2D Screen Space
           const projectedLabels: ProjectedCelestialLabel[] = [];
           const projectWorldPos = (
             id: string,
@@ -2883,7 +3186,7 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             worldPos: THREE.Vector3,
             yOffset: number,
             distKm: string,
-            category: 'planet' | 'blackhole' | 'probe' | 'galaxy' = 'planet'
+            category: 'planet' | 'blackhole' | 'probe' | 'galaxy' | 'star' = 'planet'
           ) => {
             _vec3C.copy(worldPos);
             _vec3C.y += yOffset;
@@ -2906,8 +3209,8 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             });
           };
 
-          // Show Planet labels when inside Solar System zoom range (orbitZoomMultiplier <= 5.5)
-          if (orbitZoomMultiplier <= 5.5) {
+          // 1. Show Planet labels when inside Solar System zoom range (displayedZoom <= 5.5)
+          if (displayedZoom <= 5.5) {
             planetsRuntime.forEach((pr) => {
               projectWorldPos(
                 pr.data.id,
@@ -2922,30 +3225,81 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             });
           }
 
-          projectWorldPos(
-            'blackhole',
-            'Sagittarius A*',
-            'ब्लैक होल (Sgr A*)',
-            '#f59e0b',
-            blackHoleGroup.position,
-            18,
-            '26,670 LY',
-            'blackhole'
-          );
+          // 2. Show 14 Clickable Famous Interstellar Stars while traveling through the Milky Way (2.1x to 48x)
+          if (displayedZoom >= 2.1 && displayedZoom <= 48.0) {
+            starsRuntime.forEach((sr) => {
+              projectWorldPos(
+                sr.data.id,
+                `${sr.data.name} (${sr.data.sunRadiusMultiplier}×☉)`,
+                `${sr.data.hindiName.split('(')[0].trim()} (${sr.data.sunRadiusMultiplier}× सूर्य)`,
+                sr.data.color,
+                sr.group.position,
+                sr.data.visualRadius3D + 16,
+                sr.data.distanceLightYears,
+                'star'
+              );
+            });
+          }
 
-          // Project Deep-Space Galaxies, Nebulae, Superclusters & CMB Horizon labels!
-          galaxiesRuntime.forEach((gal) => {
+          if (displayedZoom <= 18.0) {
             projectWorldPos(
-              gal.data.id,
-              gal.data.name,
-              gal.data.hindiName,
-              gal.data.color,
-              gal.group.position,
-              gal.data.scale3D * 0.55,
-              gal.data.distanceLightYears,
-              'galaxy'
+              'blackhole',
+              'Sagittarius A*',
+              'ब्लैक होल (Sgr A*)',
+              '#f59e0b',
+              blackHoleGroup.position,
+              18,
+              '26,670 LY',
+              'blackhole'
             );
-          });
+          }
+
+          // 3. Project Extragalactic Galaxies, Superclusters & CMB Horizon when leaving the Milky Way!
+          if (displayedZoom >= 14.0) {
+            galaxiesRuntime.forEach((gal) => {
+              projectWorldPos(
+                gal.data.id,
+                gal.data.name,
+                gal.data.hindiName,
+                gal.data.color,
+                gal.group.position,
+                gal.data.scale3D * 0.45,
+                gal.data.distanceLightYears,
+                'galaxy'
+              );
+            });
+          }
+
+          // Compute Live Cosmic Depth Zone Name & Distance Indicator
+          let cosmicZoneEn = 'Solar System (Sun & 8 Planets)';
+          let cosmicZoneHi = 'सौर मंडल (सूर्य व 8 ग्रह)';
+          let cosmicDistanceLabel = '0.0005 Light-Years (30 AU)';
+
+          if (displayedZoom >= 68) {
+            cosmicZoneEn = 'Observable Universe & CMB Edge';
+            cosmicZoneHi = 'दृश्य ब्रह्मांड और CMB सीमा (46.5 अरब प्रकाश-वर्ष)';
+            cosmicDistanceLabel = '46.5 Billion Light-Years';
+          } else if (displayedZoom >= 46) {
+            cosmicZoneEn = 'Local Group & Andromeda (M31)';
+            cosmicZoneHi = 'लोकल ग्रुप आकाशगंगाएं व एंड्रोमेडा (M31)';
+            cosmicDistanceLabel = '2.5 – 520 Million Light-Years';
+          } else if (displayedZoom >= 26) {
+            cosmicZoneEn = 'Exiting Milky Way Spiral Galaxy';
+            cosmicZoneHi = 'मिल्की वे आकाशगंगा से बाहर निकल रहे हैं';
+            cosmicDistanceLabel = '55,000 – 105,700 Light-Years';
+          } else if (displayedZoom >= 10) {
+            cosmicZoneEn = 'Milky Way Hypergiant Stars (Betelgeuse · Stephenson 2-18)';
+            cosmicZoneHi = 'मिल्की वे के महाविशाल तारे (बेटेलग्यूज़ · स्टीफेंसन 2-18)';
+            cosmicDistanceLabel = '640 – 19,000 Light-Years';
+          } else if (displayedZoom >= 3.0) {
+            cosmicZoneEn = 'Local Interstellar Neighborhood (Proxima · Sirius · Vega)';
+            cosmicZoneHi = 'इंटरस्टेलर तारा क्षेत्र (प्रॉक्सिमा · सीरियस · वेगा)';
+            cosmicDistanceLabel = '4.2 – 430 Light-Years';
+          } else if (displayedZoom >= 1.9) {
+            cosmicZoneEn = 'Kuiper Belt & Oort Cloud Boundary';
+            cosmicZoneHi = 'कुइपर बेल्ट व ऊर्ट क्लाउड सीमा';
+            cosmicDistanceLabel = '1.5 Light-Years';
+          }
 
           onTelemetryRef.current({
             hull: Math.round(playerState.hull),
@@ -2977,6 +3331,15 @@ export const SpaceCanvas = forwardRef<SpaceCanvasHandle, SpaceCanvasProps>(
             completedMissions: Array.from(playerState.completedMissions),
             radarBlips: blips,
             projectedLabels,
+            voyageActive,
+            voyageProgressPct: Math.round(
+              (voyageElapsed / VOYAGE_DURATION_SEC) * 100
+            ),
+            voyageElapsedSec: Math.round(voyageElapsed),
+            voyageSpeedMultiplier: voyageSpeedMult,
+            cosmicZoneEn,
+            cosmicZoneHi,
+            cosmicDistanceLabel,
           });
         }
 
